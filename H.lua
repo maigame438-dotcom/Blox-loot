@@ -27,7 +27,7 @@ local blackFrame = Instance.new("Frame")
 blackFrame.Name = "BlackOverlay"
 blackFrame.Size = UDim2.new(1, 0, 1, 0)
 blackFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-blackFrame.BackgroundTransparency = 0.2 -- Độ đen (0.2 = rất tối)
+blackFrame.BackgroundTransparency = 1 -- Độ đen (0.2 = rất tối)
 blackFrame.Visible = false
 blackFrame.Parent = screenGui
 
