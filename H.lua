@@ -1,21 +1,51 @@
-local cg=game:GetService("CoreGui")
-local g=Instance.new("ScreenGui",cg)
-g.Name="BlackScreen"
+-- Tạo ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BatterySaverGui"
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999 -- Đảm bảo luôn nằm trên cùng
+screenGui.Parent = game.CoreGui
 
-local f=Instance.new("Frame",g)
-f.Size=UDim2.new(1,0,1,0)
-f.BackgroundColor3=Color3.new(0,0,0)
-f.Visible=false
-f.ZIndex=1
+-- Tạo nút tròn hình mặt trăng
+local button = Instance.new("TextButton")
+button.Name = "MoonButton"
+button.Size = UDim2.new(0, 50, 0, 50)
+button.Position = UDim2.new(0, 10, 0.5, -25)
+button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+button.Text = "🌙"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextSize = 25
+button.AutoButtonColor = true
+button.Parent = screenGui
 
-local b=Instance.new("TextButton",g)
-b.Size=UDim2.new(0,50,0,50)
-b.Position=UDim2.new(0,15,0.5,-25)
-b.Text="🌙"
-b.TextScaled=true
-b.BackgroundTransparency=0.3
-b.ZIndex=2
+-- Bo tròn nút
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(1, 0)
+uiCorner.Parent = button
 
-b.MouseButton1Click:Connect(function()
-	f.Visible=not f.Visible
+-- Tạo lớp phủ màu đen (Black Screen)
+local blackFrame = Instance.new("Frame")
+blackFrame.Name = "BlackOverlay"
+blackFrame.Size = UDim2.new(1, 0, 1, 0)
+blackFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+blackFrame.BackgroundTransparency = 0.2 -- Độ đen (0.2 = rất tối)
+blackFrame.Visible = false
+blackFrame.Parent = screenGui
+
+-- Xử lý sự kiện nhấn nút
+local isBlack = false
+button.MouseButton1Click:Connect(function()
+    isBlack = not isBlack
+    blackFrame.Visible = isBlack
+    
+    if isBlack then
+        button.BackgroundTransparency = 0.5
+        button.TextTransparency = 0.5
+    else
+        button.BackgroundTransparency = 0
+        button.TextTransparency = 0
+    end
 end)
+
+-- Đảm bảo nút luôn nằm trên lớp phủ
+button.ZIndex = 10
+blackFrame.ZIndex = 1
