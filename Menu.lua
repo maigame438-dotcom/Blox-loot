@@ -1,451 +1,407 @@
--- =====================================================
--- [Roblox Executor Script] Dark UI + Black Screen + Hide GUI + FPS Counter
--- Tối ưu, không lag, dành cho Mobile & PC
--- =====================================================
+--[[
+    Script hoàn chỉnh cho Roblox Executor
+    Giao diện Dark UI với 3 chức năng: Black Screen, Hide Original GUI, FPS Counter
+    Tối ưu hiệu suất, Tween, Fade Animation, kéo thả mượt
+--]]
 
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
-
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ModernMenuGUI"
-ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local function createTween(object, properties, duration, style)
-    style = style or Enum.EasingStyle.Quad
-    local tweenInfo = TweenInfo.new(duration, style, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(object, tweenInfo, properties)
-    return tween
+-- Kiểm tra PlayerGui tồn tại
+if not PlayerGui then
+    PlayerGui = Instance.new("ScreenGui")
+    PlayerGui.Name = "PlayerGui"
+    PlayerGui.Parent = LocalPlayer
 end
 
--- =====================================================
--- 1. NÚT NỔI "..." (Floating Button)
--- =====================================================
-local function createFloatingButton()
-    local button = Instance.new("ImageButton")
-    button.Name = "FloatingButton"
-    button.Size = UDim2.new(0, 60, 0, 60)
-    button.Position = UDim2.new(0.5, -30, 0.5, -30)
-    button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    button.BackgroundTransparency = 0.9
-    button.BorderSizePixel = 0
-    button.Image = "rbxassetid://3570695787" -- transparent placeholder
-    button.ImageTransparency = 1
-    button.Parent = ScreenGui
+-- ===== Tạo ScreenGui chính =====
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "DarkMenuGUI"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = CoreGui
+mainGui.IgnoreGuiInset = true
+mainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- Bo góc hoàn hảo
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = button
+-- ===== Biến toàn cục =====
+local dragInfo = { isDragging = false, dragInput = nil, dragStart = nil, startPos = nil }
+local menuOpen = false
+local blackScreenEnabled = false
+local hideGUIEnabled = false
+local fpsCounterEnabled = true  -- Luôn bật
+local fpsCount = 0
+local lastUpdate = tick()
+local frameCount = 0
+local rainbowHue = 0
 
-    -- Shadow (đổ bóng)
-    local shadow = Instance.new("ImageLabel")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxassetid://1316046221" -- drop shadow
-    shadow.ImageTransparency = 0.6
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 10, 10)
-    shadow.Parent = button
+-- ===== Tạo nút nổi "..." =====
+local floatButton = Instance.new("ImageButton")
+floatButton.Name = "FloatButton"
+floatButton.Size = UDim2.new(0, 60, 0, 60)
+floatButton.Position = UDim2.new(0.5, -30, 0.5, -30)
+floatButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+floatButton.BackgroundTransparency = 0
+floatButton.BorderSizePixel = 0
+floatButton.ClipsDescendants = false
+floatButton.Image = "rbxassetid://0"
+floatButton.ImageRectOffset = Vector2.new(0, 0)
+floatButton.ImageRectSize = Vector2.new(0, 0)
+floatButton.AutoButtonColor = false
+floatButton.ZIndex = 1000
+floatButton.Parent = mainGui
 
-    -- Label "..." với Font hiện đại
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "..."
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 28
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.TextWrapped = true
-    label.Parent = button
+-- Shadow cho nút nổi
+local floatShadow = Instance.new("ImageLabel")
+floatShadow.Name = "Shadow"
+floatShadow.Size = UDim2.new(1, 12, 1, 12)
+floatShadow.Position = UDim2.new(0, -6, 0, -6)
+floatShadow.BackgroundTransparency = 1
+floatShadow.Image = "rbxassetid://13156731979"
+floatShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+floatShadow.ImageTransparency = 0.6
+floatShadow.ScaleType = Enum.ScaleType.Slice
+floatShadow.SliceCenter = Rect.new(8, 8, 8, 8)
+floatShadow.ZIndex = 999
+floatShadow.Parent = floatButton
 
-    -- Tween hover
-    button.MouseEnter:Connect(function()
-        createTween(button, {BackgroundTransparency = 0.7}, 0.2):Play()
-    end)
-    button.MouseLeave:Connect(function()
-        createTween(button, {BackgroundTransparency = 0.9}, 0.2):Play()
-    end)
+-- Corner cho nút nổi
+local floatCorner = Instance.new("UICorner")
+floatCorner.CornerRadius = UDim.new(1, 0)
+floatCorner.Parent = floatButton
 
-    return button
-end
+-- Label "..."
+local dotLabel = Instance.new("TextLabel")
+dotLabel.Name = "DotLabel"
+dotLabel.Size = UDim2.new(1, 0, 1, 0)
+dotLabel.Position = UDim2.new(0, 0, 0, 0)
+dotLabel.BackgroundTransparency = 1
+dotLabel.Text = "..."
+dotLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+dotLabel.TextSize = 30
+dotLabel.TextScaled = true
+dotLabel.Font = Enum.Font.GothamBold
+dotLabel.TextWrapped = true
+dotLabel.ZIndex = 1001
+dotLabel.Parent = floatButton
 
-local floatingBtn = createFloatingButton()
-local menuVisible = false
+-- ===== Tạo Menu chính =====
+local menuFrame = Instance.new("Frame")
+menuFrame.Name = "MenuFrame"
+menuFrame.Size = UDim2.new(0, 380, 0, 340)
+menuFrame.Position = UDim2.new(0.5, -190, 0.5, -170)
+menuFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+menuFrame.BackgroundTransparency = 1
+menuFrame.BorderSizePixel = 0
+menuFrame.Visible = false
+menuFrame.ZIndex = 500
+menuFrame.Parent = mainGui
 
--- =====================================================
--- 2. MENU CHÍNH (Dark UI - Modern)
--- =====================================================
-local function createMenu()
-    local menu = Instance.new("ImageLabel")
-    menu.Name = "MainMenu"
-    menu.Size = UDim2.new(0, 340, 0, 480)
-    menu.Position = UDim2.new(0.5, -170, 0.5, -240)
-    menu.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    menu.BackgroundTransparency = 0.08
-    menu.Image = "rbxassetid://1316046221"
-    menu.ImageTransparency = 0.85
-    menu.ScaleType = Enum.ScaleType.Slice
-    menu.SliceCenter = Rect.new(10, 10, 10, 10)
-    menu.Visible = false
-    menu.Parent = ScreenGui
+-- Shadow cho menu
+local menuShadow = Instance.new("ImageLabel")
+menuShadow.Name = "Shadow"
+menuShadow.Size = UDim2.new(1, 24, 1, 24)
+menuShadow.Position = UDim2.new(0, -12, 0, -12)
+menuShadow.BackgroundTransparency = 1
+menuShadow.Image = "rbxassetid://13156731979"
+menuShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+menuShadow.ImageTransparency = 0.5
+menuShadow.ScaleType = Enum.ScaleType.Slice
+menuShadow.SliceCenter = Rect.new(8, 8, 8, 8)
+menuShadow.ZIndex = 499
+menuShadow.Parent = menuFrame
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = menu
+-- Corner menu
+local menuCorner = Instance.new("UICorner")
+menuCorner.CornerRadius = UDim.new(0, 12)
+menuCorner.Parent = menuFrame
 
-    -- Shadow cho menu
-    local shadowMenu = Instance.new("ImageLabel")
-    shadowMenu.Name = "Shadow"
-    shadowMenu.Size = UDim2.new(1, 30, 1, 30)
-    shadowMenu.Position = UDim2.new(0, -15, 0, -15)
-    shadowMenu.BackgroundTransparency = 1
-    shadowMenu.Image = "rbxassetid://1316046221"
-    shadowMenu.ImageTransparency = 0.5
-    shadowMenu.ScaleType = Enum.ScaleType.Slice
-    shadowMenu.SliceCenter = Rect.new(10, 10, 10, 10)
-    shadowMenu.Parent = menu
+-- Stroke menu
+local menuStroke = Instance.new("UIStroke")
+menuStroke.Color = Color3.fromRGB(60, 60, 70)
+menuStroke.Thickness = 1
+menuStroke.Transparency = 0.3
+menuStroke.Parent = menuFrame
 
-    -- Tiêu đề
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, -40, 0, 50)
-    title.Position = UDim2.new(0, 20, 0, 10)
-    title.BackgroundTransparency = 1
-    title.Text = "MENU"
-    title.TextColor3 = Color3.fromRGB(220, 220, 230)
-    title.TextSize = 24
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = menu
+-- Tiêu đề menu
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(1, 0, 0, 50)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "DARK MENU"
+titleLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+titleLabel.TextSize = 22
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+titleLabel.TextYAlignment = Enum.TextYAlignment.Center
+titleLabel.ZIndex = 501
+titleLabel.Parent = menuFrame
 
-    -- Dòng kẻ
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(0.9, 0, 0, 1)
-    line.Position = UDim2.new(0.05, 0, 0, 70)
-    line.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    line.BorderSizePixel = 0
-    line.Parent = menu
+-- Line chia
+local lineDiv = Instance.new("Frame")
+lineDiv.Name = "LineDiv"
+lineDiv.Size = UDim2.new(0.9, 0, 0, 2)
+lineDiv.Position = UDim2.new(0.05, 0, 0, 50)
+lineDiv.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+lineDiv.BackgroundTransparency = 0.5
+lineDiv.BorderSizePixel = 0
+lineDiv.ZIndex = 501
+lineDiv.Parent = menuFrame
 
-    -- =============================================
-    -- CHỨC NĂNG 1: BLACK SCREEN
-    -- =============================================
-    local blackScreen = Instance.new("Frame")
-    blackScreen.Name = "BlackScreenOverlay"
-    blackScreen.Size = UDim2.new(1, 0, 1, 0)
-    blackScreen.Position = UDim2.new(0, 0, 0, 0)
-    blackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    blackScreen.BackgroundTransparency = 1
-    blackScreen.BorderSizePixel = 0
-    blackScreen.ZIndex = 999
-    blackScreen.Parent = ScreenGui
-    blackScreen.Visible = false
-
-    local blackToggle = false
-    local function toggleBlackScreen()
-        blackToggle = not blackToggle
-        blackScreen.Visible = true
-        local target = blackToggle and 0 or 1
-        createTween(blackScreen, {BackgroundTransparency = target}, 0.5):Play()
-        if not blackToggle then
-            task.wait(0.5)
-            blackScreen.Visible = false
-        end
-    end
-
-    -- Nút Black Screen
-    local btnBlack = createToggleButton(menu, "Black Screen", 90, function()
-        toggleBlackScreen()
-    end)
-
-    -- =============================================
-    -- CHỨC NĂNG 2: HIDE ORIGINAL GUI
-    -- =============================================
-    local hiddenGUIs = {}
-    local hideToggle = false
-    local function toggleHideGUI()
-        hideToggle = not hideToggle
-        if hideToggle then
-            for _, gui in ipairs(PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Name ~= "ModernMenuGUI" then
-                    table.insert(hiddenGUIs, gui)
-                    gui.Enabled = false
-                end
-            end
-        else
-            for _, gui in ipairs(hiddenGUIs) do
-                pcall(function() gui.Enabled = true end)
-            end
-            table.clear(hiddenGUIs)
-        end
-    end
-
-    local btnHide = createToggleButton(menu, "Hide Original GUI", 170, function()
-        toggleHideGUI()
-    end)
-
-    -- =============================================
-    -- CHỨC NĂNG 3: FPS COUNTER
-    -- =============================================
-    local fpsLabel = Instance.new("TextLabel")
-    fpsLabel.Name = "FPSLabel"
-    fpsLabel.Size = UDim2.new(0, 100, 0, 40)
-    fpsLabel.Position = UDim2.new(0.5, -50, 0, 250)
-    fpsLabel.BackgroundTransparency = 0.2
-    fpsLabel.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-    fpsLabel.Text = "FPS: 0"
-    fpsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    fpsLabel.TextSize = 18
-    fpsLabel.Font = Enum.Font.GothamBold
-    fpsLabel.TextScaled = true
-    fpsLabel.Parent = menu
-
-    local fpsCorner = Instance.new("UICorner")
-    fpsCorner.CornerRadius = UDim.new(0, 8)
-    fpsCorner.Parent = fpsLabel
-
-    local fpsToggle = false
-    local frameCount = 0
-    local lastTime = tick()
-    local currentFPS = 0
-
-    local function updateFPS()
-        frameCount = frameCount + 1
-        local now = tick()
-        if now - lastTime >= 0.5 then
-            currentFPS = math.floor(frameCount / (now - lastTime))
-            frameCount = 0
-            lastTime = now
-
-            local color
-            if currentFPS >= 1 and currentFPS <= 10 then
-                color = Color3.fromRGB(255, 50, 50)   -- Đỏ
-            elseif currentFPS > 10 and currentFPS <= 30 then
-                color = Color3.fromRGB(255, 200, 50)  -- Vàng
-            elseif currentFPS > 30 and currentFPS <= 500 then
-                color = Color3.fromRGB(50, 255, 50)   -- Xanh lá
-            elseif currentFPS > 500 then
-                -- Cầu vồng 7 màu (HSV xoay)
-                local hue = (tick() * 0.15) % 1
-                color = Color3.fromHSV(hue, 1, 1)
-            else
-                color = Color3.fromRGB(150, 150, 150)
-            end
-            fpsLabel.TextColor3 = color
-            fpsLabel.Text = "FPS: " .. currentFPS
-        end
-    end
-
-    local fpsConnection
-    local function toggleFPS()
-        fpsToggle = not fpsToggle
-        if fpsToggle then
-            fpsLabel.Visible = true
-            fpsConnection = RunService.Heartbeat:Connect(updateFPS)
-        else
-            fpsLabel.Visible = false
-            if fpsConnection then
-                fpsConnection:Disconnect()
-                fpsConnection = nil
-            end
-        end
-    end
-
-    local btnFPS = createToggleButton(menu, "FPS Counter", 250, function()
-        toggleFPS()
-    end)
-
-    -- Nút đóng menu (X)
-    local closeBtn = Instance.new("ImageButton")
-    closeBtn.Name = "CloseBtn"
-    closeBtn.Size = UDim2.new(0, 34, 0, 34)
-    closeBtn.Position = UDim2.new(1, -44, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-    closeBtn.BackgroundTransparency = 0.4
-    closeBtn.Image = "rbxassetid://169625476" -- X icon
-    closeBtn.ImageColor3 = Color3.fromRGB(200, 200, 210)
-    closeBtn.Parent = menu
-
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 8)
-    closeCorner.Parent = closeBtn
-
-    closeBtn.MouseButton1Click:Connect(function()
-        toggleMenu()
-    end)
-
-    return menu, fpsLabel
-end
-
--- =====================================================
--- HÀM TẠO NÚT TOGGLE (UI hiện đại)
--- =====================================================
-function createToggleButton(parent, text, yPos, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(0.9, 0, 0, 44)
-    container.Position = UDim2.new(0.05, 0, 0, yPos)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    local btn = Instance.new("ImageButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-    btn.BackgroundTransparency = 0.2
-    btn.Image = "rbxassetid://1316046221"
-    btn.ImageTransparency = 0.9
-    btn.ScaleType = Enum.ScaleType.Slice
-    btn.SliceCenter = Rect.new(10, 10, 10, 10)
-    btn.Parent = container
-
-    local cornerBtn = Instance.new("UICorner")
-    cornerBtn.CornerRadius = UDim.new(0, 10)
-    cornerBtn.Parent = btn
+-- ===== Hàm tạo toggle item =====
+local function createToggleItem(parent, labelText, yPos, callback)
+    local itemFrame = Instance.new("Frame")
+    itemFrame.Size = UDim2.new(1, -40, 0, 50)
+    itemFrame.Position = UDim2.new(0, 20, 0, yPos)
+    itemFrame.BackgroundTransparency = 1
+    itemFrame.ZIndex = 501
+    itemFrame.Parent = parent
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(0.7, 0, 1, 0)
-    label.Position = UDim2.new(0, 12, 0, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(200, 200, 210)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(200, 200, 220)
     label.TextSize = 16
-    label.Font = Enum.Font.GothamMedium
+    label.Font = Enum.Font.Gotham
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = btn
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.ZIndex = 502
+    label.Parent = itemFrame
 
-    local toggleIndicator = Instance.new("Frame")
-    toggleIndicator.Size = UDim2.new(0, 42, 0, 24)
-    toggleIndicator.Position = UDim2.new(1, -52, 0.5, -12)
-    toggleIndicator.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    toggleIndicator.BorderSizePixel = 0
-    toggleIndicator.Parent = btn
+    local toggleBtn = Instance.new("ImageButton")
+    toggleBtn.Size = UDim2.new(0, 50, 0, 30)
+    toggleBtn.Position = UDim2.new(1, -60, 0.5, -15)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    toggleBtn.BackgroundTransparency = 0
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.AutoButtonColor = false
+    toggleBtn.ZIndex = 502
+    toggleBtn.Parent = itemFrame
 
-    local indCorner = Instance.new("UICorner")
-    indCorner.CornerRadius = UDim.new(1, 0)
-    indCorner.Parent = toggleIndicator
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(1, 0)
+    toggleCorner.Parent = toggleBtn
 
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 20, 0, 20)
-    dot.Position = UDim2.new(0, 2, 0.5, -10)
-    dot.BackgroundColor3 = Color3.fromRGB(180, 180, 190)
-    dot.BorderSizePixel = 0
-    dot.Parent = toggleIndicator
+    local toggleCircle = Instance.new("ImageLabel")
+    toggleCircle.Size = UDim2.new(0, 26, 0, 26)
+    toggleCircle.Position = UDim2.new(0, 2, 0.5, -13)
+    toggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggleCircle.BackgroundTransparency = 0
+    toggleCircle.BorderSizePixel = 0
+    toggleCircle.ZIndex = 503
+    toggleCircle.Parent = toggleBtn
 
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(1, 0)
-    dotCorner.Parent = dot
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = toggleCircle
 
     local state = false
-    btn.MouseButton1Click:Connect(function()
+
+    local function updateToggle()
+        local targetPos = state and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
+        local targetColor = state and Color3.fromRGB(100, 180, 255) or Color3.fromRGB(40, 40, 50)
+
+        TweenService:Create(toggleCircle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = targetPos
+        }):Play()
+
+        TweenService:Create(toggleBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = targetColor
+        }):Play()
+    end
+
+    toggleBtn.MouseButton1Click:Connect(function()
         state = not state
-        local targetPos = state and UDim2.new(0, 20, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
-        local targetColor = state and Color3.fromRGB(70, 130, 255) or Color3.fromRGB(50, 50, 60)
-        createTween(dot, {Position = targetPos}, 0.2):Play()
-        createTween(toggleIndicator, {BackgroundColor3 = targetColor}, 0.2):Play()
-        if callback then callback() end
+        updateToggle()
+        if callback then callback(state) end
     end)
 
-    return btn
+    return {
+        setState = function(newState)
+            state = newState
+            updateToggle()
+        end,
+        getState = function()
+            return state
+        end
+    }
 end
 
--- =====================================================
--- ĐIỀU KHIỂN MENU (MỞ/ĐÓNG + KÉO THẢ)
--- =====================================================
-local menu, fpsLabel = createMenu()
-
-local function toggleMenu()
-    menuVisible = not menuVisible
-    if menuVisible then
-        menu.Visible = true
-        menu.BackgroundTransparency = 0.08
-        createTween(menu, {BackgroundTransparency = 0.06}, 0.3):Play()
-        -- Fade in
-        menu.ImageTransparency = 0.85
-        createTween(menu, {ImageTransparency = 0.7}, 0.3):Play()
-    else
-        createTween(menu, {BackgroundTransparency = 0.3}, 0.2):Play()
-        createTween(menu, {ImageTransparency = 1}, 0.2):Play()
-        task.wait(0.25)
-        menu.Visible = false
-    end
-end
-
-floatingBtn.MouseButton1Click:Connect(toggleMenu)
-
--- =====================================================
--- KÉO THẢ NÚT NỔI (Mobile & PC)
--- =====================================================
-local dragging = false
-local dragStart, buttonStart
-
-floatingBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        buttonStart = floatingBtn.Position
+-- ===== Tạo các toggle items =====
+local blackScreenToggle = createToggleItem(menuFrame, "Black Screen", 70, function(state)
+    blackScreenEnabled = state
+    if blackScreenScreen then
+        TweenService:Create(blackScreenScreen, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = state and 0 or 1
+        }):Play()
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        local newX = buttonStart.X.Offset + delta.X
-        local newY = buttonStart.Y.Offset + delta.Y
-        -- Giới hạn trong màn hình
-        local maxX = 1 - floatingBtn.Size.X.Scale
-        local maxY = 1 - floatingBtn.Size.Y.Scale
-        newX = math.clamp(newX / ScreenGui.AbsoluteSize.X, 0, maxX)
-        newY = math.clamp(newY / ScreenGui.AbsoluteSize.Y, 0, maxY)
-        floatingBtn.Position = UDim2.new(newX, 0, newY, 0)
+local hideGUIToggle = createToggleItem(menuFrame, "Hide Original GUI", 135, function(state)
+    hideGUIEnabled = state
+    for _, gui in pairs(CoreGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and gui ~= mainGui and gui.Name ~= "RobloxGui" then
+            gui.Enabled = not state
+        end
     end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
--- =====================================================
--- KHỞI TẠO: FPS mặc định TẮT, menu ẩn
--- =====================================================
-menu.Visible = false
-fpsLabel.Visible = false
-
--- Giữ ScreenGui không bị xóa khi game tải lại
-ScreenGui.ResetOnSpawn = false
-
--- =====================================================
--- DỌN DẸP KHI NGƯỜI CHƠI THOÁT
--- =====================================================
-Player.PlayerRemoving:Connect(function()
-    if fpsConnection then fpsConnection:Disconnect() end
-    ScreenGui:Destroy()
-end)heo trạng thái
-    if state.menuVisible then
-        toggleBtn.Image = "rbxassetid://3926305904" -- bánh răng
-    else
-        toggleBtn.Image = "rbxassetid://6031091554" -- icon menu (ba gạch)
-    end
-end)
-
--- Cập nhật thông tin FPS realtime
-spawn(function()
-    while screenGui and screenGui.Parent do
-        wait(0.5)
-        local infoLabel = menuFrame and menuFrame:FindFirstChildOfClass("TextLabel")
-        if infoLabel and infoLabel.Text:find("FPS:") then
-            infoLabel.Text = "FPS: " .. state.fps .. "\nDev: @2024nam8\nVer: 1.1.0\nYear: 2024"
+    if PlayerGui then
+        for _, gui in pairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                gui.Enabled = not state
+            end
         end
     end
 end)
+
+-- FPS Counter (luôn bật, không có toggle)
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Name = "FPSLabel"
+fpsLabel.Size = UDim2.new(1, -40, 0, 40)
+fpsLabel.Position = UDim2.new(0, 20, 0, 200)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "FPS: 0"
+fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+fpsLabel.TextSize = 18
+fpsLabel.Font = Enum.Font.GothamBold
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.TextYAlignment = Enum.TextYAlignment.Center
+fpsLabel.ZIndex = 501
+fpsLabel.Parent = menuFrame
+
+-- ===== Tạo Black Screen =====
+local blackScreenScreen = Instance.new("ImageLabel")
+blackScreenScreen.Name = "BlackScreen"
+blackScreenScreen.Size = UDim2.new(1, 0, 1, 0)
+blackScreenScreen.Position = UDim2.new(0, 0, 0, 0)
+blackScreenScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+blackScreenScreen.BackgroundTransparency = 1
+blackScreenScreen.BorderSizePixel = 0
+blackScreenScreen.Image = ""
+blackScreenScreen.ZIndex = 2000
+blackScreenScreen.Parent = mainGui
+
+-- ===== Hàm cập nhật FPS =====
+local function updateFPS()
+    frameCount = frameCount + 1
+    local now = tick()
+    if now - lastUpdate >= 0.5 then
+        fpsCount = math.floor(frameCount / (now - lastUpdate))
+        frameCount = 0
+        lastUpdate = now
+
+        -- Cập nhật màu sắc
+        local color
+        if fpsCount >= 1 and fpsCount <= 10 then
+            color = Color3.fromRGB(255, 50, 50)  -- Đỏ
+        elseif fpsCount > 10 and fpsCount <= 30 then
+            color = Color3.fromRGB(255, 200, 50)  -- Vàng
+        elseif fpsCount > 30 and fpsCount <= 500 then
+            color = Color3.fromRGB(50, 255, 50)  -- Xanh lá
+        elseif fpsCount > 500 then
+            -- Hiệu ứng cầu vồng
+            rainbowHue = (rainbowHue + 0.02) % 1
+            color = Color3.fromHSV(rainbowHue, 1, 1)
+        else
+            color = Color3.fromRGB(200, 200, 200)
+        end
+
+        fpsLabel.Text = "FPS: " .. fpsCount
+        fpsLabel.TextColor3 = color
+    end
+end
+
+-- ===== Kéo thả nút nổi =====
+local function setupDragging()
+    local button = floatButton
+
+    local function onInputBegan(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.Touch then
+                dragInfo.isDragging = true
+                dragInfo.dragStart = input.Position
+                dragInfo.startPos = button.Position
+            else
+                dragInfo.isDragging = true
+                dragInfo.dragStart = input.Position
+                dragInfo.startPos = button.Position
+            end
+        end
+    end
+
+    local function onInputChanged(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+            if dragInfo.isDragging then
+                local delta = input.Position - dragInfo.dragStart
+                local newPos = UDim2.new(
+                    dragInfo.startPos.X.Scale,
+                    dragInfo.startPos.X.Offset + delta.X,
+                    dragInfo.startPos.Y.Scale,
+                    dragInfo.startPos.Y.Offset + delta.Y
+                )
+                -- Giới hạn trong màn hình
+                newPos = UDim2.new(
+                    math.clamp(newPos.X.Scale, 0, 1),
+                    math.clamp(newPos.X.Offset, 0, 1),
+                    math.clamp(newPos.Y.Scale, 0, 1),
+                    math.clamp(newPos.Y.Offset, 0, 1)
+                )
+                button.Position = newPos
+            end
+        end
+    end
+
+    local function onInputEnded(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragInfo.isDragging = false
+        end
+    end
+
+    button.InputBegan:Connect(onInputBegan)
+    button.InputChanged:Connect(onInputChanged)
+    button.InputEnded:Connect(onInputEnded)
+end
+
+setupDragging()
+
+-- ===== Xử lý mở/đóng menu =====
+floatButton.MouseButton1Click:Connect(function()
+    menuOpen = not menuOpen
+
+    if menuOpen then
+        menuFrame.Visible = true
+        TweenService:Create(menuFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0
+        }):Play()
+    else
+        TweenService:Create(menuFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 1
+        }):Play()
+        task.wait(0.3)
+        menuFrame.Visible = false
+    end
+end)
+
+-- ===== Vòng lặp cập nhật FPS =====
+RunService.Heartbeat:Connect(function()
+    updateFPS()
+end)
+
+-- ===== Xử lý khi game bị thoát hoặc reset =====
+local function cleanup()
+    if mainGui then mainGui:Destroy() end
+end
+
+game:GetService("CoreGui").ChildRemoved:Connect(function(child)
+    if child == mainGui then
+        cleanup()
+    end
+end)
+
+-- ===== Khởi tạo hoàn tất =====
+print("Dark Menu loaded successfully.")
