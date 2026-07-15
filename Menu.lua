@@ -1,469 +1,303 @@
-bản chỉnh sửa bởi Doi
-văn bản
+-- fulluid uru - main menu | by:@2024nam8
+-- Phiên bản 1.1.0 - Hỗ trợ đóng/mở bằng click, tối ưu mobile 80% màn hình
 
-```lua
--- // Script Red Hub Clone - Sửa lỗi màn hình đen không bao phủ hết // --
--- // Đảm bảo: Màn hình đen phủ kín 100% mọi không gian kể cả thanh công cụ // --
-
-local NguoiChoi = game:GetService("Players").LocalPlayer
-local DichVuNguoiDung = game:GetService("UserInputService")
-local DichVuChay = game:GetService("RunService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
 -- Biến trạng thái
-local MauChuDao = Color3.fromRGB(255, 0, 0)
-local TrangThaiCauVong = false
-local GiaTriCauVong = 0
-local MenuDangMo = false
-local ManHinhDenDangBat = false
-local FPSDangHien = false
-local GUIGocDaAn = false
-local KetNoiCauVong = nil
-
--- Danh sách màu
-local BangMau = {
-    {Ten = "Đỏ", Mau = Color3.fromRGB(255, 0, 0)},
-    {Ten = "Xanh Dương", Mau = Color3.fromRGB(0, 150, 255)},
-    {Ten = "Xanh Lá", Mau = Color3.fromRGB(0, 255, 0)},
-    {Ten = "Tím", Mau = Color3.fromRGB(128, 0, 128)},
-    {Ten = "Vàng", Mau = Color3.fromRGB(255, 255, 0)},
-    {Ten = "Đen Tím", Mau = Color3.fromRGB(30, 0, 30)},
-    {Ten = "Hồng", Mau = Color3.fromRGB(255, 105, 180)},
-    {Ten = "Cam", Mau = Color3.fromRGB(255, 165, 0)},
-    {Ten = "Trắng", Mau = Color3.fromRGB(255, 255, 255)},
-    {Ten = "Xanh Mint", Mau = Color3.fromRGB(0, 255, 128)},
+local state = {
+    blackScreen = false,
+    hideGUI = false,
+    destroyGUI = false,
+    fpsCounter = true,
+    theme = "Rainbow",
+    fps = 0,
+    frameCount = 0,
+    lastTime = tick(),
+    menuVisible = true
 }
 
--- Tạo GUI chính trong CoreGui
-local ManHinhChinh = Instance.new("ScreenGui")
-ManHinhChinh.Name = "RedHub_Clone_Main"
-ManHinhChinh.Parent = game.CoreGui
-ManHinhChinh.IgnoreGuiInset = true -- Bỏ qua khoảng cách viền màn hình
-ManHinhChinh.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Lấy kích thước màn hình
+local viewportSize = workspace.CurrentCamera.ViewportSize
+local screenW, screenH = viewportSize.X, viewportSize.Y
 
--- =================== XÂY DỰNG MÀN HÌNH ĐEN TUYỆT ĐỐI =================== --
-local ManHinhDenGUI = Instance.new("ScreenGui")
-ManHinhDenGUI.Name = "ManHinhDenGUI"
-ManHinhDenGUI.Parent = game.CoreGui
-ManHinhDenGUI.IgnoreGuiInset = true
-ManHinhDenGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ManHinhDenGUI.Enabled = false
+-- Tạo ScreenGui chính
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FulluidUruMainMenu"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
 
--- Lớp đen chính - kích thước tuyệt đối để chắc chắn bao phủ toàn bộ
-local LopDen1 = Instance.new("Frame")
-LopDen1.Name = "LopDen1"
-LopDen1.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-LopDen1.BorderSizePixel = 0
-LopDen1.Size = UDim2.new(1, 0, 1, 0)
-LopDen1.Position = UDim2.new(0, 0, 0, 0)
-LopDen1.ZIndex = 9999
-LopDen1.Parent = ManHinhDenGUI
+-- Hàm tạo FPS Counter
+local function createFPSCounter()
+    local frame = Instance.new("Frame")
+    frame.Name = "FPSCounter"
+    frame.Size = UDim2.new(0, 100, 0, 30)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundTransparency = 0.5
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+    frame.Visible = state.fpsCounter
 
--- Lớp đen thứ 2 (dự phòng) - đảm bảo không có khe hở
-local LopDen2 = Instance.new("Frame")
-LopDen2.Name = "LopDen2"
-LopDen2.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-LopDen2.BorderSizePixel = 0
-LopDen2.Size = UDim2.new(1, 0, 1, 0)
-LopDen2.Position = UDim2.new(0, 0, 0, 0)
-LopDen2.ZIndex = 10000
-LopDen2.Parent = ManHinhDenGUI
+    local label = Instance.new("TextLabel")
+    label.Name = "FPSLabel"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "FPS: 0"
+    label.TextColor3 = Color3.fromRGB(0, 255, 0)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = frame
 
--- =================== NÚT MỞ MENU CHÍNH (LUÔN HIỂN THỊ) =================== --
-local NutMoMenu = Instance.new("ImageButton")
-NutMoMenu.Name = "NutMoMenu"
-NutMoMenu.BackgroundColor3 = MauChuDao
-NutMoMenu.BorderSizePixel = 0
-NutMoMenu.Size = UDim2.new(0, 45, 0, 45)
-NutMoMenu.Position = UDim2.new(0, 10, 0.5, -22)
-NutMoMenu.ZIndex = 1001
-NutMoMenu.Image = "rbxassetid://0"
-NutMoMenu.Parent = ManHinhChinh
-
-local VanBanNut = Instance.new("TextLabel")
-VanBanNut.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-VanBanNut.BackgroundTransparency = 0.3
-VanBanNut.BorderSizePixel = 0
-VanBanNut.Size = UDim2.new(1, 0, 1, 0)
-VanBanNut.Font = Enum.Font.SourceSansBold
-VanBanNut.Text = "RH"
-VanBanNut.TextColor3 = Color3.fromRGB(255, 255, 255)
-VanBanNut.TextSize = 20
-VanBanNut.ZIndex = 1002
-VanBanNut.Parent = NutMoMenu
-
--- =================== MENU CHÍNH =================== --
-local KhungMenu = Instance.new("Frame")
-KhungMenu.Name = "KhungMenuChinh"
-KhungMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-KhungMenu.BorderSizePixel = 1
-KhungMenu.BorderColor3 = MauChuDao
-KhungMenu.Size = UDim2.new(0, 280, 0, 400)
-KhungMenu.Position = UDim2.new(0, 60, 0.5, -200)
-KhungMenu.ZIndex = 1001
-KhungMenu.Visible = false
-KhungMenu.Parent = ManHinhChinh
-
--- Góc tạo điểm nhấn đỏ (style Red Hub)
-local GocTraiTren = Instance.new("Frame")
-GocTraiTren.BackgroundColor3 = MauChuDao
-GocTraiTren.BorderSizePixel = 0
-GocTraiTren.Size = UDim2.new(0, 3, 0, 30)
-GocTraiTren.Position = UDim2.new(0, 0, 0, 0)
-GocTraiTren.ZIndex = 1002
-GocTraiTren.Parent = KhungMenu
-
-local GocPhaiTren = Instance.new("Frame")
-GocPhaiTren.BackgroundColor3 = MauChuDao
-GocPhaiTren.BorderSizePixel = 0
-GocPhaiTren.Size = UDim2.new(0, 3, 0, 30)
-GocPhaiTren.Position = UDim2.new(1, -3, 0, 0)
-GocPhaiTren.ZIndex = 1002
-GocPhaiTren.Parent = KhungMenu
-
--- Thanh tiêu đề menu
-local ThanhTieuDe = Instance.new("Frame")
-ThanhTieuDe.BackgroundColor3 = MauChuDao
-ThanhTieuDe.BorderSizePixel = 0
-ThanhTieuDe.Size = UDim2.new(1, 0, 0, 30)
-ThanhTieuDe.Position = UDim2.new(0, 0, 0, 0)
-ThanhTieuDe.ZIndex = 1002
-ThanhTieuDe.Parent = KhungMenu
-
-local TieuDeChu = Instance.new("TextLabel")
-TieuDeChu.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-TieuDeChu.BackgroundTransparency = 1
-TieuDeChu.BorderSizePixel = 0
-TieuDeChu.Size = UDim2.new(1, -40, 1, 0)
-TieuDeChu.Position = UDim2.new(0, 10, 0, 0)
-TieuDeChu.Font = Enum.Font.SourceSansBold
-TieuDeChu.Text = "Red Hub V2"
-TieuDeChu.TextColor3 = Color3.fromRGB(255, 255, 255)
-TieuDeChu.TextSize = 16
-TieuDeChu.TextXAlignment = Enum.TextXAlignment.Left
-TieuDeChu.ZIndex = 1003
-TieuDeChu.Parent = ThanhTieuDe
-
-local NutDongMenu = Instance.new("TextButton")
-NutDongMenu.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-NutDongMenu.BorderSizePixel = 0
-NutDongMenu.Size = UDim2.new(0, 30, 0, 20)
-NutDongMenu.Position = UDim2.new(1, -35, 0, 5)
-NutDongMenu.Font = Enum.Font.SourceSansBold
-NutDongMenu.Text = "X"
-NutDongMenu.TextColor3 = Color3.fromRGB(255, 255, 255)
-NutDongMenu.TextSize = 14
-NutDongMenu.ZIndex = 1003
-NutDongMenu.Parent = ThanhTieuDe
-NutDongMenu.MouseButton1Click:Connect(function()
-    MenuDangMo = false
-    KhungMenu.Visible = false
-end)
-
--- Khung nội dung menu
-local KhungNoiDung = Instance.new("ScrollingFrame")
-KhungNoiDung.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-KhungNoiDung.BorderSizePixel = 0
-KhungNoiDung.Size = UDim2.new(1, -6, 1, -36)
-KhungNoiDung.Position = UDim2.new(0, 3, 0, 33)
-KhungNoiDung.CanvasSize = UDim2.new(0, 0, 2.5, 0)
-KhungNoiDung.ScrollBarThickness = 4
-KhungNoiDung.ScrollBarImageColor3 = MauChuDao
-KhungNoiDung.ZIndex = 1002
-KhungNoiDung.Parent = KhungMenu
-
-local BoCuc = Instance.new("UIListLayout")
-BoCuc.Parent = KhungNoiDung
-BoCuc.SortOrder = Enum.SortOrder.LayoutOrder
-BoCuc.Padding = UDim.new(0, 4)
-
--- =================== CÁC HÀM XÂY DỰNG PHẦN TỬ MENU =================== --
-local function TaoPhanCach(TieuDe)
-    local Khung = Instance.new("Frame")
-    Khung.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Khung.BorderSizePixel = 0
-    Khung.Size = UDim2.new(1, -10, 0, 25)
-    Khung.ZIndex = 1003
-    Khung.Parent = KhungNoiDung
-    
-    local Chu = Instance.new("TextLabel")
-    Chu.BackgroundTransparency = 1
-    Chu.Size = UDim2.new(1, 0, 1, 0)
-    Chu.Font = Enum.Font.SourceSansBold
-    Chu.Text = TieuDe
-    Chu.TextColor3 = MauChuDao
-    Chu.TextSize = 13
-    Chu.TextXAlignment = Enum.TextXAlignment.Left
-    Chu.ZIndex = 1004
-    Chu.Parent = Khung
-    return Khung
+    return frame
 end
 
-local function TaoNutChucNang(Ten, HamGoi)
-    local Nut = Instance.new("TextButton")
-    Nut.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Nut.BorderSizePixel = 1
-    Nut.BorderColor3 = MauChuDao
-    Nut.Size = UDim2.new(1, -10, 0, 32)
-    Nut.Font = Enum.Font.SourceSans
-    Nut.Text = Ten
-    Nut.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Nut.TextSize = 14
-    Nut.ZIndex = 1003
-    Nut.Parent = KhungNoiDung
-    
-    Nut.MouseButton1Click:Connect(HamGoi)
-    Nut.MouseEnter:Connect(function() Nut.BackgroundColor3 = MauChuDao end)
-    Nut.MouseLeave:Connect(function() Nut.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end)
-    return Nut
-end
+local fpsFrame = createFPSCounter()
+local fpsLabel = fpsFrame:FindFirstChild("FPSLabel")
 
-local function TaoThanhTruot(Ten, Min, Max, MacDinh, HamGoi)
-    local Khung = Instance.new("Frame")
-    Khung.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Khung.BorderSizePixel = 1
-    Khung.BorderColor3 = MauChuDao
-    Khung.Size = UDim2.new(1, -10, 0, 50)
-    Khung.ZIndex = 1003
-    Khung.Parent = KhungNoiDung
-    
-    local Nhan = Instance.new("TextLabel")
-    Nhan.BackgroundTransparency = 1
-    Nhan.Size = UDim2.new(1, 0, 0, 20)
-    Nhan.Position = UDim2.new(0, 5, 0, 3)
-    Nhan.Font = Enum.Font.SourceSans
-    Nhan.Text = Ten .. ": " .. MacDinh
-    Nhan.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Nhan.TextSize = 12
-    Nhan.TextXAlignment = Enum.TextXAlignment.Left
-    Nhan.ZIndex = 1004
-    Nhan.Parent = Khung
-    
-    local ThanhNen = Instance.new("Frame")
-    ThanhNen.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    ThanhNen.BorderSizePixel = 0
-    ThanhNen.Size = UDim2.new(1, -10, 0, 8)
-    ThanhNen.Position = UDim2.new(0, 5, 0, 26)
-    ThanhNen.ZIndex = 1004
-    ThanhNen.Parent = Khung
-    
-    local NutKeo = Instance.new("TextButton")
-    NutKeo.BackgroundColor3 = MauChuDao
-    NutKeo.BorderSizePixel = 0
-    NutKeo.Size = UDim2.new(0, 16, 0, 16)
-    NutKeo.Position = UDim2.new(0, 0, 0.5, -8)
-    NutKeo.Text = ""
-    NutKeo.ZIndex = 1005
-    NutKeo.Parent = ThanhNen
-    
-    local DangKeo = false
-    NutKeo.MouseButton1Down:Connect(function() DangKeo = true end)
-    DichVuNguoiDung.InputEnded:Connect(function(DauVao)
-        if DauVao.UserInputType == Enum.UserInputType.MouseButton1 then DangKeo = false end
-    end)
-    DichVuNguoiDung.InputChanged:Connect(function(DauVao)
-        if DangKeo and DauVao.UserInputType == Enum.UserInputType.MouseMovement then
-            local TyLe = math.clamp((DauVao.Position.X - ThanhNen.AbsolutePosition.X) / ThanhNen.AbsoluteSize.X, 0, 1)
-            local GiaTri = Min + (Max - Min) * TyLe
-            NutKeo.Position = UDim2.new(TyLe, -8, 0.5, -8)
-            Nhan.Text = Ten .. ": " .. math.floor(GiaTri)
-            HamGoi(GiaTri)
-        end
-    end)
-    return Khung
-end
-
--- =================== CẬP NHẬT MÀU SẮC TOÀN BỘ GIAO DIỆN =================== --
-local function CapNhatMauSac()
-    ThanhTieuDe.BackgroundColor3 = MauChuDao
-    GocTraiTren.BackgroundColor3 = MauChuDao
-    GocPhaiTren.BackgroundColor3 = MauChuDao
-    NutMoMenu.BackgroundColor3 = MauChuDao
-    KhungMenu.BorderColor3 = MauChuDao
-    KhungNoiDung.ScrollBarImageColor3 = MauChuDao
-    
-    for _, Con in ipairs(KhungNoiDung:GetChildren()) do
-        if Con:IsA("TextButton") and Con.Name:find("Nut_") then
-            Con.BorderColor3 = MauChuDao
-        elseif Con:IsA("Frame") and Con.Name:find("Truot_") then
-            Con.BorderColor3 = MauChuDao
-            for _, Chau in ipairs(Con:GetChildren()) do
-                if Chau.Name == "NutKeo" then Chau.BackgroundColor3 = MauChuDao end
-            end
-        elseif Con:IsA("Frame") and Con.Name:find("PhanCach_") then
-            for _, Chau in ipairs(Con:GetChildren()) do
-                if Chau:IsA("TextLabel") then Chau.TextColor3 = MauChuDao end
+-- Cập nhật FPS
+RunService.Heartbeat:Connect(function()
+    state.frameCount = state.frameCount + 1
+    local currentTime = tick()
+    if currentTime - state.lastTime >= 0.2 then
+        state.fps = math.floor(state.frameCount / (currentTime - state.lastTime))
+        state.frameCount = 0
+        state.lastTime = currentTime
+        if fpsLabel then
+            fpsLabel.Text = "FPS: " .. state.fps
+            if state.fps > 300 then
+                fpsLabel.TextColor3 = Color3.fromHSV(tick() % 1, 1, 1)
+            elseif state.fps >= 31 then
+                fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif state.fps >= 11 then
+                fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+            else
+                fpsLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
             end
         end
     end
-end
-
-local function BatCauVong()
-    TrangThaiCauVong = true
-    if KetNoiCauVong then KetNoiCauVong:Disconnect() end
-    KetNoiCauVong = DichVuChay.RenderStepped:Connect(function()
-        GiaTriCauVong = GiaTriCauVong + 0.005
-        if GiaTriCauVong > 1 then GiaTriCauVong = 0 end
-        MauChuDao = Color3.fromHSV(GiaTriCauVong, 1, 1)
-        CapNhatMauSac()
-    end)
-end
-
--- =================== NỘI DUNG MENU =================== --
-TaoPhanCach("⚙ Chức Năng Chính")
-
--- Nút màn hình đen
-TaoNutChucNang("Màn Hình Đen: TẮT", function()
-    ManHinhDenDangBat = not ManHinhDenDangBat
-    ManHinhDenGUI.Enabled = ManHinhDenDangBat
-    local Nut = KhungNoiDung:FindFirstChild("Nut_Màn Hình Đen: TẮT") or KhungNoiDung:FindFirstChild("Nut_Màn Hình Đen: BẬT")
-    if Nut then Nut.Text = ManHinhDenDangBat and "Màn Hình Đen: BẬT" or "Màn Hình Đen: TẮT" end
 end)
 
--- Nút ẩn GUI game
-TaoNutChucNang("Ẩn GUI Game: TẮT", function()
-    GUIGocDaAn = not GUIGocDaAn
-    pcall(function()
-        local PlayerGui = NguoiChoi:FindFirstChild("PlayerGui")
-        if PlayerGui then
-            for _, Gui in ipairs(PlayerGui:GetChildren()) do
-                if Gui:IsA("ScreenGui") or Gui:IsA("SurfaceGui") then
-                    Gui.Enabled = not GUIGocDaAn
-                end
+-- Nút toggle (hình tròn) để đóng/mở menu
+local toggleBtn = Instance.new("ImageButton")
+toggleBtn.Name = "ToggleMenuBtn"
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(1, -60, 0, 60)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.BackgroundTransparency = 0.8
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Image = "rbxassetid://3926305904" -- icon bánh răng
+toggleBtn.Parent = screenGui
+
+-- Biến lưu menuFrame
+local menuFrame = nil
+
+-- Hàm tạo menu chính
+local function createMainMenu()
+    -- Frame nền menu - chiếm 80% màn hình
+    menuFrame = Instance.new("Frame")
+    menuFrame.Name = "MainMenu"
+    menuFrame.Size = UDim2.new(0.8, 0, 0.8, 0)
+    menuFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+    menuFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    menuFrame.BorderSizePixel = 0
+    menuFrame.Parent = screenGui
+    menuFrame.Active = true
+    menuFrame.Draggable = true
+    menuFrame.Visible = state.menuVisible
+
+    -- Tiêu đề
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "fulluid uru - main menu | by:@2024nam8"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = menuFrame
+
+    -- Danh sách tính năng (cuộn)
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, -20, 1, -140)
+    scroll.Position = UDim2.new(0, 10, 0, 50)
+    scroll.BackgroundTransparency = 1
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 500)
+    scroll.ScrollBarThickness = 8
+    scroll.Parent = menuFrame
+
+    local list = Instance.new("UIListLayout")
+    list.Padding = UDim.new(0, 10)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.Parent = scroll
+
+    -- Hàm tạo nút (mobile-friendly, to hơn)
+    local function createButton(text, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, math.min(screenW * 0.6, 350), 0, 50)
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        btn.BorderSizePixel = 0
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Parent = scroll
+        btn.MouseButton1Click:Connect(callback)
+        return btn
+    end
+
+    -- Cập nhật trạng thái nút
+    local function updateButtonText(btn, isActive)
+        if isActive then
+            btn.Text = "[x] " .. btn.Text:sub(5)
+        else
+            btn.Text = "[ ] " .. btn.Text:sub(5)
+        end
+    end
+
+    -- Nút Black Screen
+    local btnBlack = createButton("[ ] Black Screen", function()
+        state.blackScreen = not state.blackScreen
+        updateButtonText(btnBlack, state.blackScreen)
+        if state.blackScreen then
+            local black = Instance.new("Frame")
+            black.Name = "BlackScreenOverlay"
+            black.Size = UDim2.new(1, 0, 1, 0)
+            black.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            black.BorderSizePixel = 0
+            black.Parent = screenGui
+        else
+            local black = screenGui:FindFirstChild("BlackScreenOverlay")
+            if black then black:Destroy() end
+        end
+    end)
+
+    -- Nút Hide All GUI
+    local btnHide = createButton("[ ] Hide All GUI", function()
+        state.hideGUI = not state.hideGUI
+        updateButtonText(btnHide, state.hideGUI)
+        for _, v in pairs(screenGui:GetChildren()) do
+            if v.Name ~= "MainMenu" and v.Name ~= "FPSCounter" and v.Name ~= "ToggleMenuBtn" then
+                v.Visible = not state.hideGUI
             end
         end
     end)
-    local Nut = KhungNoiDung:FindFirstChild("Nut_Ẩn GUI Game: TẮT") or KhungNoiDung:FindFirstChild("Nut_Ẩn GUI Game: BẬT")
-    if Nut then Nut.Text = GUIGocDaAn and "Ẩn GUI Game: BẬT" or "Ẩn GUI Game: TẮT" end
-end)
 
--- Nút hiển thị FPS
-local KhungFPS = nil
-TaoNutChucNang("Hiện FPS: TẮT", function()
-    FPSDangHien = not FPSDangHien
-    local Nut = KhungNoiDung:FindFirstChild("Nut_Hiện FPS: TẮT") or KhungNoiDung:FindFirstChild("Nut_Hiện FPS: BẬT")
-    if Nut then Nut.Text = FPSDangHien and "Hiện FPS: BẬT" or "Hiện FPS: TẮT" end
-    
-    if FPSDangHien then
-        if not KhungFPS then
-            KhungFPS = Instance.new("Frame")
-            KhungFPS.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            KhungFPS.BackgroundTransparency = 0.4
-            KhungFPS.BorderSizePixel = 1
-            KhungFPS.BorderColor3 = MauChuDao
-            KhungFPS.Size = UDim2.new(0, 70, 0, 25)
-            KhungFPS.Position = UDim2.new(1, -80, 0, 10)
-            KhungFPS.ZIndex = 1001
-            KhungFPS.Parent = ManHinhChinh
-            
-            local ChuFPS = Instance.new("TextLabel")
-            ChuFPS.BackgroundTransparency = 1
-            ChuFPS.Size = UDim2.new(1, 0, 1, 0)
-            ChuFPS.Font = Enum.Font.SourceSansBold
-            ChuFPS.Text = "FPS: 60"
-            ChuFPS.TextColor3 = Color3.fromRGB(0, 255, 0)
-            ChuFPS.TextSize = 14
-            ChuFPS.ZIndex = 1002
-            ChuFPS.Parent = KhungFPS
-            
-            spawn(function()
-                local LanCuoi = tick()
-                local Dem = 0
-                while FPSDangHien and KhungFPS do
-                    Dem = Dem + 1
-                    if tick() - LanCuoi >= 0.2 then
-                        local FPS = math.floor(Dem / (tick() - LanCuoi))
-                        ChuFPS.Text = "FPS: " .. FPS
-                        LanCuoi = tick()
-                        Dem = 0
-                    end
-                    DichVuChay.RenderStepped:Wait()
+    -- Nút FPS Counter
+    local btnFPS = createButton("[x] FPS Counter", function()
+        state.fpsCounter = not state.fpsCounter
+        updateButtonText(btnFPS, state.fpsCounter)
+        if fpsFrame then fpsFrame.Visible = state.fpsCounter end
+    end)
+
+    -- Nút Destroy GUI
+    createButton("Destroy GUI", function()
+        state.destroyGUI = true
+        screenGui:Destroy()
+    end)
+
+    -- Theme Selector
+    local themeLabel = Instance.new("TextLabel")
+    themeLabel.Size = UDim2.new(0, math.min(screenW * 0.6, 350), 0, 35)
+    themeLabel.Text = "Theme: Rainbow (click để đổi)"
+    themeLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    themeLabel.BackgroundTransparency = 1
+    themeLabel.Font = Enum.Font.Gotham
+    themeLabel.TextScaled = true
+    themeLabel.Parent = scroll
+
+    local themes = {"Black","White","Gray","Blue","Dark Blue","Red","Dark Red","Green","Lime","Yellow","Orange","Purple","Pink","Cyan","Rainbow","Secret"}
+    local themeIndex = 15
+    local rainbowCoroutine = nil
+
+    local function applyTheme(col)
+        if rainbowCoroutine then
+            coroutine.close(rainbowCoroutine)
+            rainbowCoroutine = nil
+        end
+        if state.theme == "Rainbow" then
+            rainbowCoroutine = coroutine.create(function()
+                while state.theme == "Rainbow" and menuFrame and menuFrame.Parent do
+                    local hue = tick() % 1
+                    menuFrame.BackgroundColor3 = Color3.fromHSV(hue, 0.8, 0.5)
+                    wait(0.05)
                 end
             end)
+            coroutine.resume(rainbowCoroutine)
+        elseif state.theme == "Secret" then
+            menuFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+            menuFrame.BackgroundTransparency = 1
         else
-            KhungFPS.Visible = true
+            menuFrame.BackgroundColor3 = col
+            menuFrame.BackgroundTransparency = 0
         end
-    else
-        if KhungFPS then KhungFPS.Visible = false end
     end
-end)
 
-TaoPhanCach("📏 Kích Thước Menu")
-
-TaoThanhTruot("Rộng", 200, 500, 280, function(GiaTri)
-    KhungMenu.Size = UDim2.new(0, GiaTri, 0, KhungMenu.Size.Y.Offset)
-end)
-
-TaoThanhTruot("Cao", 300, 600, 400, function(GiaTri)
-    KhungMenu.Size = UDim2.new(0, KhungMenu.Size.X.Offset, 0, GiaTri)
-end)
-
-TaoPhanCach("🎨 Màu Sắc")
-
-local KhungMau = Instance.new("Frame")
-KhungMau.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-KhungMau.BorderSizePixel = 1
-KhungMau.BorderColor3 = MauChuDao
-KhungMau.Size = UDim2.new(1, -10, 0, 80)
-KhungMau.ZIndex = 1003
-KhungMau.Parent = KhungNoiDung
-
-for STT, Mau in ipairs(BangMau) do
-    local NutMau = Instance.new("TextButton")
-    NutMau.BackgroundColor3 = Mau.Mau
-    NutMau.BorderSizePixel = 1
-    NutMau.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    NutMau.Size = UDim2.new(0, 24, 0, 24)
-    local Cot = (STT - 1) % 8
-    local Hang = math.floor((STT - 1) / 8)
-    NutMau.Position = UDim2.new(0, 5 + Cot * 29, 0, 5 + Hang * 29)
-    NutMau.Text = ""
-    NutMau.ZIndex = 1004
-    NutMau.Parent = KhungMau
-    
-    NutMau.MouseButton1Click:Connect(function()
-        MauChuDao = Mau.Mau
-        TrangThaiCauVong = false
-        if KetNoiCauVong then KetNoiCauVong:Disconnect(); KetNoiCauVong = nil end
-        CapNhatMauSac()
+    themeLabel.MouseButton1Click:Connect(function()
+        themeIndex = themeIndex % #themes + 1
+        state.theme = themes[themeIndex]
+        themeLabel.Text = "Theme: " .. state.theme .. " (click để đổi)"
+        local colors = {
+            Black = Color3.fromRGB(10,10,10),
+            White = Color3.fromRGB(240,240,240),
+            Gray = Color3.fromRGB(128,128,128),
+            Blue = Color3.fromRGB(0,100,255),
+            ["Dark Blue"] = Color3.fromRGB(0,0,139),
+            Red = Color3.fromRGB(255,0,0),
+            ["Dark Red"] = Color3.fromRGB(139,0,0),
+            Green = Color3.fromRGB(0,200,0),
+            Lime = Color3.fromRGB(0,255,0),
+            Yellow = Color3.fromRGB(255,255,0),
+            Orange = Color3.fromRGB(255,165,0),
+            Purple = Color3.fromRGB(128,0,128),
+            Pink = Color3.fromRGB(255,105,180),
+            Cyan = Color3.fromRGB(0,255,255),
+            Rainbow = Color3.fromRGB(255,0,0),
+            Secret = Color3.fromRGB(0,0,0)
+        }
+        applyTheme(colors[state.theme] or Color3.fromRGB(30,30,30))
     end)
+
+    -- Thông tin
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(1, 0, 0, 80)
+    info.Position = UDim2.new(0, 0, 1, -80)
+    info.BackgroundTransparency = 1
+    info.Text = "FPS: " .. state.fps .. "\nDev: @2024nam8\nVer: 1.1.0\nYear: 2024"
+    info.TextColor3 = Color3.fromRGB(180,180,180)
+    info.TextScaled = true
+    info.Font = Enum.Font.Gotham
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.Parent = menuFrame
 end
 
-TaoNutChucNang("Cầu Vồng: TẮT", function()
-    if TrangThaiCauVong then
-        TrangThaiCauVong = false
-        if KetNoiCauVong then KetNoiCauVong:Disconnect(); KetNoiCauVong = nil end
-        local Nut = KhungNoiDung:FindFirstChild("Nut_Cầu Vồng: BẬT")
-        if Nut then Nut.Text = "Cầu Vồng: TẮT" end
+createMainMenu()
+
+-- Xử lý toggle đóng/mở bằng click vào nút tròn
+toggleBtn.MouseButton1Click:Connect(function()
+    state.menuVisible = not state.menuVisible
+    if menuFrame then
+        menuFrame.Visible = state.menuVisible
+    end
+    -- Đổi icon theo trạng thái
+    if state.menuVisible then
+        toggleBtn.Image = "rbxassetid://3926305904" -- bánh răng
     else
-        BatCauVong()
-        local Nut = KhungNoiDung:FindFirstChild("Nut_Cầu Vồng: TẮT")
-        if Nut then Nut.Text = "Cầu Vồng: BẬT" end
+        toggleBtn.Image = "rbxassetid://6031091554" -- icon menu (ba gạch)
     end
 end)
 
--- =================== SỰ KIỆN ĐÓNG MỞ MENU =================== --
-NutMoMenu.MouseButton1Click:Connect(function()
-    MenuDangMo = not MenuDangMo
-    KhungMenu.Visible = MenuDangMo
-end)
-
--- Cho phép kéo menu
-local DangKeoMenu = false
-local ViTriLech = Vector2.new(0, 0)
-ThanhTieuDe.InputBegan:Connect(function(DauVao)
-    if DauVao.UserInputType == Enum.UserInputType.MouseButton1 then
-        DangKeoMenu = true
-        ViTriLech = Vector2.new(DauVao.Position.X - KhungMenu.AbsolutePosition.X, DauVao.Position.Y - KhungMenu.AbsolutePosition.Y)
+-- Cập nhật thông tin FPS realtime
+spawn(function()
+    while screenGui and screenGui.Parent do
+        wait(0.5)
+        local infoLabel = menuFrame and menuFrame:FindFirstChildOfClass("TextLabel")
+        if infoLabel and infoLabel.Text:find("FPS:") then
+            infoLabel.Text = "FPS: " .. state.fps .. "\nDev: @2024nam8\nVer: 1.1.0\nYear: 2024"
+        end
     end
 end)
-DichVuNguoiDung.InputEnded:Connect(function(DauVao)
-    if DauVao.UserInputType == Enum.UserInputType.MouseButton1 then DangKeoMenu = false end
-end)
-DichVuNguoiDung.InputChanged:Connect(function(DauVao)
-    if DangKeoMenu and DauVao.UserInputType == Enum.UserInputType.MouseMovement then
-        KhungMenu.Position = UDim2.new(0, DauVao.Position.X - ViTriLech.X, 0, DauVao.Position.Y - ViTriLech.Y)
-    end
-end)
-
-print("Red Hub Clone đã khởi động. Màn hình đen đã được sửa lỗi.")
-```
