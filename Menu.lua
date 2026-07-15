@@ -1,6 +1,6 @@
 -- =====================================================================
--- FLUID MODERN UI FRAMEWORK (FIXED & FULLY FUNCTIONAL)
--- Tương thích 100% với Mobile Executors | Không dùng CanvasGroup
+-- ULTIMATE FLUID UI - REWRITTEN FROM SCRATCH
+-- Support: PC & Mobile | 60FPS Smooth Tweening | Full Themes
 -- =====================================================================
 
 local TweenService = game:GetService("TweenService")
@@ -13,722 +13,233 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local TargetParent = (RunService:IsStudio()) and PlayerGui or (gethui and gethui()) or CoreGui
 
--- Xóa UI cũ nếu tồn tại
-if TargetParent:FindFirstChild("UltimateFluidHub") then
-    TargetParent.UltimateFluidHub:Destroy()
+if TargetParent:FindFirstChild("UltimateFluidUI_Rewrite") then
+    TargetParent.UltimateFluidUI_Rewrite:Destroy()
 end
 
+-- =====================================================================
+-- 1. SCREEN GUI SETUP (Tối ưu hiển thị toàn màn hình)
+-- =====================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateFluidHub"
+ScreenGui.Name = "UltimateFluidUI_Rewrite"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true -- Đảm bảo che kín 100% không hở viền
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = TargetParent
 
--- =====================================================================
--- 1. BLACK SCREEN OVERLAY
--- =====================================================================
-local BlackScreen = Instance.new("Frame")
-BlackScreen.Name = "BlackScreenOverlay"
-BlackScreen.Size = UDim2.new(1, 0, 1, 0)
-BlackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-BlackScreen.ZIndex = 999
-BlackScreen.Visible = false -- Tắt mặc định
-BlackScreen.Parent = ScreenGui
+-- Hệ thống quản lý Theme động
+local ThemeObjects = {
+    Backgrounds = {},
+    Accents = {},
+    Texts = {},
+    Strokes = {},
+    Gradients = {}
+}
+
+local CurrentTheme = "Blue"
+local IsRainbow = false
+local IsSecret = false
+local ScriptVersion = "v2.0.0 (Rewrite)"
 
 -- =====================================================================
--- 2. FLOATING MENU BUTTON (55x55, Kéo mượt & Bo tròn)
+-- 2. CORE COMPONENTS: BLACK SCREEN, FPS COUNTER, NÚT NỔI
 -- =====================================================================
+
+-- [BLACK SCREEN] (ZIndex = 1)
+local BlackScreen = Instance.new("Frame")
+BlackScreen.Name = "BlackScreen"
+BlackScreen.Size = UDim2.new(1, 0, 1, 0)
+BlackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlackScreen.ZIndex = 1
+BlackScreen.Visible = false
+BlackScreen.Parent = ScreenGui
+
+-- [FPS COUNTER] (ZIndex = 100)
+local FPSCounter = Instance.new("TextLabel")
+FPSCounter.Name = "FPSCounter"
+FPSCounter.Size = UDim2.new(0, 100, 0, 30)
+FPSCounter.Position = UDim2.new(0.5, -50, 0, 10)
+FPSCounter.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+FPSCounter.Text = "FPS: ..."
+FPSCounter.TextColor3 = Color3.fromRGB(255, 255, 255)
+FPSCounter.Font = Enum.Font.GothamBold
+FPSCounter.TextSize = 14
+FPSCounter.Visible = false
+FPSCounter.ZIndex = 100
+FPSCounter.Parent = ScreenGui
+Instance.new("UICorner", FPSCounter).CornerRadius = UDim.new(0, 6)
+local FPSStroke = Instance.new("UIStroke", FPSCounter)
+FPSStroke.Thickness = 1.5
+table.insert(ThemeObjects.Accents, FPSStroke)
+
+-- [NÚT NỔI - FLOATING BUTTON] (ZIndex = 100, Kích thước 55x55)
 local FloatingBtn = Instance.new("TextButton")
+FloatingBtn.Name = "FloatingButton"
 FloatingBtn.Size = UDim2.new(0, 55, 0, 55)
 FloatingBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
-FloatingBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+FloatingBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 FloatingBtn.Text = "⋯"
 FloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FloatingBtn.TextSize = 24
 FloatingBtn.Font = Enum.Font.GothamBold
+FloatingBtn.TextSize = 24
 FloatingBtn.AutoButtonColor = false
 FloatingBtn.ZIndex = 100
 FloatingBtn.Parent = ScreenGui
 
 Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(1, 0)
-local BtnStroke = Instance.new("UIStroke", FloatingBtn)
-BtnStroke.Color = Color3.fromRGB(80, 80, 80)
-BtnStroke.Thickness = 1.5
+local FloatStroke = Instance.new("UIStroke", FloatingBtn)
+FloatStroke.Thickness = 2
+table.insert(ThemeObjects.Accents, FloatStroke)
+table.insert(ThemeObjects.Accents, FloatingBtn)
 
 -- =====================================================================
--- 3. MAIN MENU KÈM HEADER VÀ NÚT 'X'
+-- 3. HỆ THỐNG ANIMATION & TƯƠNG TÁC (RIPPLE, DRAG)
 -- =====================================================================
-local MainMenu = Instance.new("Frame")
-MainMenu.Size = UDim2.new(0, 400, 0, 300)
-MainMenu.Position = UDim2.new(0.5, -200, 0.5, -150)
-MainMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainMenu.Visible = false
-MainMenu.ZIndex = 50
-MainMenu.Parent = ScreenGui
 
-Instance.new("UICorner", MainMenu).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainMenu).Color = Color3.fromRGB(60, 60, 60)
-
-local MenuScale = Instance.new("UIScale")
-MenuScale.Scale = 0.8
-MenuScale.Parent = MainMenu
-
--- Header (Tiêu đề + Nút X)
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 40)
-Header.BackgroundTransparency = 1
-Header.Parent = MainMenu
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "MODERN HUB MENU"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 14
-CloseBtn.AutoButtonColor = false
-CloseBtn.Parent = Header
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-
--- Vùng chứa Nội dung cuộn
-local ContentArea = Instance.new("ScrollingFrame")
-ContentArea.Size = UDim2.new(1, -20, 1, -50)
-ContentArea.Position = UDim2.new(0, 10, 0, 40)
-ContentArea.BackgroundTransparency = 1
-ContentArea.ScrollBarThickness = 4
-ContentArea.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
-ContentArea.Parent = MainMenu
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 8)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = ContentArea
-
--- =====================================================================
--- 4. HỆ THỐNG DRAG & TOGGLE (NÚT NỔI VÀ MENU)
--- =====================================================================
-local MenuVisible = false
-local IsAnimating = false
-
-local function ToggleMenu()
-    if IsAnimating then return end
-    IsAnimating = true
-    MenuVisible = not MenuVisible
-
-    if MenuVisible then
-        MainMenu.Visible = true
-        MenuScale.Scale = 0.8
-        local tween = TweenService:Create(MenuScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1})
-        tween:Play()
-        tween.Completed:Connect(function() IsAnimating = false end)
-    else
-        local tween = TweenService:Create(MenuScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.8})
-        tween:Play()
-        tween.Completed:Connect(function()
-            MainMenu.Visible = false
-            IsAnimating = false
-        end)
-    end
+local function CreateRipple(parent, x, y)
+    local ripple = Instance.new("Frame")
+    ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ripple.BackgroundTransparency = 0.6
+    ripple.ZIndex = parent.ZIndex + 1
+    Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
+    ripple.Parent = parent
+    
+    local isRelative = (x and y)
+    local posX = isRelative and (x - parent.AbsolutePosition.X) or (parent.AbsoluteSize.X / 2)
+    local posY = isRelative and (y - parent.AbsolutePosition.Y) or (parent.AbsoluteSize.Y / 2)
+    
+    ripple.Position = UDim2.new(0, posX, 0, posY)
+    ripple.Size = UDim2.new(0, 0, 0, 0)
+    
+    local maxSize = math.max(parent.AbsoluteSize.X, parent.AbsoluteSize.Y) * 1.5
+    local tween = TweenService:Create(ripple, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, maxSize, 0, maxSize),
+        Position = UDim2.new(0, posX - maxSize/2, 0, posY - maxSize/2),
+        BackgroundTransparency = 1
+    })
+    tween:Play()
+    tween.Completed:Connect(function() ripple:Destroy() end)
 end
 
-CloseBtn.MouseButton1Click:Connect(function()
-    if MenuVisible then ToggleMenu() end
-end)
-
-local Dragging, DragStartPos, StartGuiPos
-local ClickThreshold = 5 -- Chống trùng lặp Drag và Click
-
-FloatingBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStartPos = input.Position
-        StartGuiPos = FloatingBtn.Position
-        TweenService:Create(FloatingBtn, TweenInfo.new(0.1), {Size = UDim2.new(0, 50, 0, 50), BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                Dragging = false
-                TweenService:Create(FloatingBtn, TweenInfo.new(0.1), {Size = UDim2.new(0, 55, 0, 55), BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
-                
-                -- Phân biệt nhấn và kéo
-                local dist = (input.Position - DragStartPos).Magnitude
-                if dist <= ClickThreshold then
-                    ToggleMenu()
-                end
-            end
-        end)
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - DragStartPos
-        local view = workspace.CurrentCamera.ViewportSize
-        local newX = math.clamp(StartGuiPos.X.Offset + delta.X, 0, view.X - FloatingBtn.AbsoluteSize.X)
-        local newY = math.clamp(StartGuiPos.Y.Offset + delta.Y, 0, view.Y - FloatingBtn.AbsoluteSize.Y)
-        
-        TweenService:Create(FloatingBtn, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {
-            Position = UDim2.new(0, newX, 0, newY)
-        }):Play()
-    end
-end)
-
--- =====================================================================
--- 5. THƯ VIỆN TẠO UI BẰNG INSTANCE (ĐỂ KHÔNG BỊ TRỐNG)
--- =====================================================================
-local function CreateLabel(text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 30)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "  " .. text
-    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 14
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = ContentArea
-    return lbl
-end
-
-local function CreateButton(text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
-    btn.AutoButtonColor = false
-    btn.Parent = ContentArea
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+local function MakeDraggable(guiObject, clickCallback)
+    local dragging, dragInput, dragStart, startPos
+    local clickThreshold = 5
     
-    btn.MouseButton1Click:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
-        task.wait(0.1)
-        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-        callback()
-    end)
-end
-
-local function CreateToggle(text, callback)
-    local state = false
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 40)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    frame.Parent = ContentArea
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -60, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 14
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-    
-    local checkBg = Instance.new("Frame")
-    checkBg.Size = UDim2.new(0, 40, 0, 20)
-    checkBg.Position = UDim2.new(1, -50, 0.5, -10)
-    checkBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    checkBg.Parent = frame
-    Instance.new("UICorner", checkBg).CornerRadius = UDim.new(1, 0)
-    
-    local checkCircle = Instance.new("Frame")
-    checkCircle.Size = UDim2.new(0, 16, 0, 16)
-    checkCircle.Position = UDim2.new(0, 2, 0.5, -8)
-    checkCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    checkCircle.Parent = checkBg
-    Instance.new("UICorner", checkCircle).CornerRadius = UDim.new(1, 0)
-    
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.Parent = frame
-    
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        local xPos = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        local bgColor = state and Color3.fromRGB(85, 255, 127) or Color3.fromRGB(50, 50, 50)
-        
-        TweenService:Create(checkCircle, TweenInfo.new(0.2), {Position = xPos}):Play()
-        TweenService:Create(checkBg, TweenInfo.new(0.2), {BackgroundColor3 = bgColor}):Play()
-        callback(state)
-    end)
-end
-
--- =====================================================================
--- 6. GỌI HÀM VÀ THỰC THI CÁC CHỨC NĂNG YÊU CẦU
--- =====================================================================
-
--- Logic lưu các GUI bị ẩn
-local hiddenGUIs = {}
-
-CreateToggle("Black Screen", function(state)
-    BlackScreen.Visible = state
-end)
-
-CreateToggle("Hide GUI (Game ScreenGuis)", function(state)
-    if state then
-        -- Duyệt qua PlayerGui để ẩn mọi thứ trừ Hub này
-        for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Name ~= "UltimateFluidHub" and gui.Enabled then
-                hiddenGUIs[gui] = true
-                gui.Enabled = false
-            end
-        end
-    else
-        -- Hiện lại các GUI đã bị ẩn
-        for gui, _ in pairs(hiddenGUIs) do
-            if gui and gui.Parent then
-                gui.Enabled = true
-            end
-        end
-        table.clear(hiddenGUIs) -- Xóa lịch sử
-    end
-end)
-
-CreateButton("Reset GUI Position", function()
-    -- Khôi phục vị trí mặc định cho Menu và nút nổi
-    TweenService:Create(FloatingBtn, TweenInfo.new(0.3), {Position = UDim2.new(0.1, 0, 0.1, 0)}):Play()
-    TweenService:Create(MainMenu, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -200, 0.5, -150)}):Play()
-end)
-
-CreateButton("Destroy GUI", function()
-    -- Khôi phục GUI nếu đang bị ẩn trước khi tự hủy
-    for gui, _ in pairs(hiddenGUIs) do
-        if gui and gui.Parent then gui.Enabled = true end
-    end
-    ScreenGui:Destroy()
-end)
-
-CreateLabel("Version: 1.0.0")
-CreateLabel("Status: Active & Undetected")
-
--- Tự động mở menu lần đầu chạy script
-ToggleMenu()
--- =====================================================================
--- LUXURY MODERN UI FLUID SCRIPT (Roblox Executor Compatible)
--- Hỗ trợ: PC (Mouse) & Mobile (Touch) - Tối ưu chống giật (Anti-Lag)
--- =====================================================================
-
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
--- Tự động chọn vùng chứa an toàn (Ưu tiên CoreGui của Executor, test trong Studio tự chuyển sang PlayerGui)
-local TargetParent = (RunService:IsStudio()) and Players.LocalPlayer:WaitForChild("PlayerGui") or (gethui and gethui()) or CoreGui
-
--- Xóa UI cũ nếu có trùng tên để tránh tạo nhiều menu
-if TargetParent:FindFirstChild("ModernFluidUI_Hub") then
-    TargetParent["ModernFluidUI_Hub"]:Destroy()
-end
-
--- =====================================================================
--- 1. KHỞI TẠO FRAMEWORK GIAO DIỆN
--- =====================================================================
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ModernFluidUI_Hub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = TargetParent
-
--- 1.1 [Chức năng 1] Màn hình đen (Black Screen Overlay)
-local BlackScreen = Instance.new("Frame")
-BlackScreen.Name = "BlackScreenOverlay"
-BlackScreen.Size = UDim2.new(1, 0, 1, 0)
-BlackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-BlackScreen.BackgroundTransparency = 1 -- Mặc định ẩn
-BlackScreen.ZIndex = 100
-BlackScreen.Visible = false
-BlackScreen.Parent = ScreenGui
-
--- 1.2 [Chức năng 7] Menu chính (Main UI)
-local MainMenu = Instance.new("Frame")
-MainMenu.Name = "MainContainer"
-MainMenu.Size = UDim2.new(0, 420, 0, 260)
-MainMenu.Position = UDim2.new(0.5, -210, 0.5, -130)
-MainMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Màu xám đen tối giản
-MainMenu.BorderSizePixel = 0
-MainMenu.ClipsDescendants = true
-MainMenu.ZIndex = 10
-MainMenu.Visible = false -- Mặc định đóng, dùng animation mở lên lúc đầu
-MainMenu.Parent = ScreenGui
-
-local MenuCorner = Instance.new("UICorner")
-MenuCorner.CornerRadius = UDim.new(0, 14) -- Bo góc hiện đại
-MenuCorner.Parent = MainMenu
-
-local MenuStroke = Instance.new("UIStroke")
-MenuStroke.Color = Color3.fromRGB(45, 45, 45)
-MenuStroke.Thickness = 1
-MenuStroke.Parent = MainMenu
-
--- [Chức năng 6] UIScale phục vụ cho Animation thu phóng
-local MenuScale = Instance.new("UIScale")
-MenuScale.Scale = 0.8
-MenuScale.Parent = MainMenu
-
--- Canvas chứa nội dung (Nơi bạn thêm chức năng/Tab sau này)
-local ContentArea = Instance.new("ScrollingFrame")
-ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(1, -24, 1, -50)
-ContentArea.Position = UDim2.new(0, 12, 0, 40)
-ContentArea.BackgroundTransparency = 1
-ContentArea.ScrollBarThickness = 3
-ContentArea.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-ContentArea.Parent = MainMenu
-
--- 1.3 [Chức năng 3] Nút nổi hình tròn (Floating Button)
-local FloatingBtn = Instance.new("TextButton")
-FloatingBtn.Name = "FloatingMenuButton"
-FloatingBtn.Size = UDim2.new(0, 55, 0, 55) -- Kích thước đúng chuẩn 55x55
-FloatingBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
-FloatingBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15) -- Nền đen đậm
-FloatingBtn.Text = "⋯" -- Biểu tượng 3 chấm ngang theo yêu cầu
-FloatingBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
-FloatingBtn.TextSize = 24
-FloatingBtn.Font = Enum.Font.GothamBold
-FloatingBtn.ZIndex = 50
-FloatingBtn.AutoButtonColor = false
-FloatingBtn.Parent = ScreenGui
-
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(1, 0) -- Bo tròn hoàn toàn thành hình tròn
-BtnCorner.Parent = FloatingBtn
-
--- Tạo bóng nhẹ (Drop Shadow) bằng UIStroke mờ
-local BtnShadow = Instance.new("UIStroke")
-BtnShadow.Color = Color3.fromRGB(255, 255, 255)
-BtnShadow.Thickness = 1.5
-BtnShadow.Transparency = 0.88
-BtnShadow.Parent = FloatingBtn
-
--- =====================================================================
--- 2. ĐỊNH NGHĨA ANIMATION & BIẾN TRẠNG THÁI
--- =====================================================================
-
-local MenuVisible = false
-local IsAnimating = false -- Khóa chống lỗi khi spam click liên tục
-local TweenDuration = 0.25 -- Tốc độ 0.25 giây theo yêu cầu
-local SmoothInfo = TweenInfo.new(TweenDuration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
--- Canvas Group để xử lý Fade In/Out toàn bộ Menu mượt mà
-local CanvasGroup = Instance.new("CanvasGroup")
-CanvasGroup.Size = UDim2.new(1, 0, 1, 0)
-CanvasGroup.BackgroundTransparency = 1
-CanvasGroup.Parent = MainMenu
-ContentArea.Parent = CanvasGroup
-
--- Title giả lập để nhìn đẹp mắt hơn
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Text = "MODERN HUB v1.0"
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextSize = 14
-TitleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-TitleLabel.Position = UDim2.new(0, 12, 0, 12)
-TitleLabel.Size = UDim2.new(0, 200, 0, 20)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = CanvasGroup
-
--- =====================================================================
--- 3. HÀM CHỨC NĂNG (CORE FUNCTIONS)
--- =====================================================================
-
--- [Chức năng 1] Hàm Bật/Tắt màn hình đen (Fade In/Fade Out)
-local function SetBlackScreen(state)
-    if state then
-        BlackScreen.Visible = true
-        TweenService:Create(BlackScreen, SmoothInfo, {BackgroundTransparency = 0.3}):Play() -- Màu đen mờ ảo sâu lắng
-    else
-        local FadeOut = TweenService:Create(BlackScreen, SmoothInfo, {BackgroundTransparency = 1})
-        FadeOut:Play()
-        FadeOut.Completed:Connect(function()
-            if BlackScreen.BackgroundTransparency == 1 then
-                BlackScreen.Visible = false
-            end
-        end)
-    end
-end
-
--- [Chức năng 2, 4, 6] Hàm xử lý Đóng/Mở Menu lặp lại (Toggle + Animation)
-local function ToggleMenu()
-    if IsAnimating then return end -- Nếu đang chạy hiệu ứng thì bỏ qua để chống lỗi bấm nhanh
-    IsAnimating = true
-    
-    MenuVisible = not MenuVisible
-    
-    if MenuVisible then
-        -- TRẠNG THÁI: MỞ MENU
-        MainMenu.Visible = true
-        MenuScale.Scale = 0.85 -- Bắt đầu từ scale nhỏ
-        CanvasGroup.GroupTransparency = 1 -- Bắt đầu ẩn hoàn toàn
-        
-        local OpenScale = TweenService:Create(MenuScale, SmoothInfo, {Scale = 1})
-        local OpenFade = TweenService:Create(CanvasGroup, SmoothInfo, {GroupTransparency = 0})
-        
-        OpenScale:Play()
-        OpenFade:Play()
-        
-        OpenFade.Completed:Connect(function()
-            IsAnimating = false
-        end)
-    else
-        -- TRẠNG THÁI: ĐÓNG MENU (HIDE UI)
-        local CloseScale = TweenService:Create(MenuScale, SmoothInfo, {Scale = 0.85})
-        local CloseFade = TweenService:Create(CanvasGroup, SmoothInfo, {GroupTransparency = 1})
-        
-        CloseScale:Play()
-        CloseFade:Play()
-        
-        CloseFade.Completed:Connect(function()
-            if not MenuVisible then
-                MainMenu.Visible = false
-            end
-            IsAnimating = false
-        end)
-    end
-end
-
--- [Chức năng 5] Hệ thống Kéo thả Nút Nổi mượt mà (Hỗ trợ PC & Mobile)
-local function SetupDraggableButton(button)
-    local Dragging = false
-    local DragInput, DragStart, StartPos
-    
-    local function UpdatePosition(input)
-        local Delta = input.Position - DragStart
-        local GoalPos = UDim2.new(
-            StartPos.X.Scale, StartPos.X.Offset + Delta.X,
-            StartPos.Y.Scale, startPos.Y.Offset + Delta.Y
-        )
-        -- Sử dụng Tween nội suy tuyến tính ngắn (0.1s) để tạo cảm giác bám tay cực mượt, không bị giật lag
-        TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {Position = GoalPos}):Play()
-    end
-    
-    button.InputBegan:Connect(function(input)
+    guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            Dragging = true
-            DragStart = input.Position
-            StartPos = button.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
             
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    Dragging = false
-                    
-                    -- Đảm bảo nút không bị văng/vượt ra khỏi mép màn hình khi thả tay
-                    local ScreenSize = ScreenGui.AbsoluteSize
-                    local ButtonSize = button.AbsoluteSize
-                    local CurrentPos = button.AbsolutePosition
-                    
-                    local BoundX = math.clamp(CurrentPos.X, 0, ScreenSize.X - ButtonSize.X)
-                    local BoundY = math.clamp(CurrentPos.Y, 0, ScreenSize.Y - ButtonSize.Y)
-                    
-                    TweenService:Create(button, SmoothInfo, {
-                        Position = UDim2.new(0, BoundX, 0, BoundY)
-                    }):Play()
+                    dragging = false
+                    if clickCallback and (input.Position - dragStart).Magnitude <= clickThreshold then
+                        clickCallback(input.Position.X, input.Position.Y)
+                    end
                 end
             end)
         end
     end)
     
-    button.InputChanged:Connect(function(input)
+    guiObject.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            DragInput = input
+            dragInput = input
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
-        if input == DragInput and Dragging then
-            UpdatePosition(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            local viewport = workspace.CurrentCamera.ViewportSize
+            local newX = math.clamp(startPos.X.Offset + delta.X, 0, viewport.X - guiObject.AbsoluteSize.X)
+            local newY = math.clamp(startPos.Y.Offset + delta.Y, 0, viewport.Y - guiObject.AbsoluteSize.Y)
+            TweenService:Create(guiObject, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {
+                Position = UDim2.new(0, newX, 0, newY)
+            }):Play()
         end
     end)
 end
 
 -- =====================================================================
--- 4. HIỆU ỨNG TƯƠNG TÁC (HOVER EFFECT) & ĐIỀU KHIỂN SỰ KIỆN
+-- 4. MAIN MENU & TAB SYSTEM
 -- =====================================================================
 
--- Kích hoạt tính năng kéo thả mượt cho nút nổi
-SetupDraggableButton(FloatingBtn)
-
--- Hiệu ứng khi rê chuột vào / Chạm vào nút nổi
-FloatingBtn.MouseEnter:Connect(function()
-    TweenService:Create(FloatingBtn, SmoothInfo, {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-    TweenService:Create(BtnShadow, SmoothInfo, {Transparency = 0.5}):Play()
-end)
-
-FloatingBtn.MouseLeave:Connect(function()
-    TweenService:Create(FloatingBtn, SmoothInfo, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
-    TweenService:Create(BtnShadow, SmoothInfo, {Transparency = 0.88}):Play()
-end)
-
--- Phân biệt hành vi "Click ngắn để Toggle UI" và "Giữ lâu để Kéo nút"
-local TouchStartTime = 0
-FloatingBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        TouchStartTime = tick()
-        TweenService:Create(FloatingBtn, SmoothInfo, {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
-    end
-end)
-
-FloatingBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        TweenService:Create(FloatingBtn, SmoothInfo, {BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
-        
-        -- Nếu nhấn và thả trong vòng chưa đầy 0.25 giây -> Xác định là hành động Click đổi trạng thái UI
-        if tick() - TouchStartTime < 0.25 then
-            ToggleMenu()
-        end
-    end
-end)
-
--- Mở Menu lần đầu tiên khi chạy Script
-ToggleMenu()
-
--- =====================================================================
--- HƯỚNG DẪN MỞ RỘNG (DÀNH CHO BẠN):
--- Để điều khiển màn hình đen từ xa, bạn chỉ cần gọi:
--- SetBlackScreen(true) -> Để bật màn hình đen
--- SetBlackScreen(false) -> Để tắt màn hình đen
--- =====================================================================
--- =====================================================================
--- FLUID MODERN UI FRAMEWORK (FIXED & FULLY FUNCTIONAL)
--- Tương thích 100% với Mobile Executors | Không dùng CanvasGroup
--- =====================================================================
-
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local TargetParent = (RunService:IsStudio()) and PlayerGui or (gethui and gethui()) or CoreGui
-
--- Xóa UI cũ nếu tồn tại
-if TargetParent:FindFirstChild("UltimateFluidHub") then
-    TargetParent.UltimateFluidHub:Destroy()
-end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateFluidHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = TargetParent
-
--- =====================================================================
--- 1. BLACK SCREEN OVERLAY
--- =====================================================================
-local BlackScreen = Instance.new("Frame")
-BlackScreen.Name = "BlackScreenOverlay"
-BlackScreen.Size = UDim2.new(1, 0, 1, 0)
-BlackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-BlackScreen.ZIndex = 999
-BlackScreen.Visible = false -- Tắt mặc định
-BlackScreen.Parent = ScreenGui
-
--- =====================================================================
--- 2. FLOATING MENU BUTTON (55x55, Kéo mượt & Bo tròn)
--- =====================================================================
-local FloatingBtn = Instance.new("TextButton")
-FloatingBtn.Size = UDim2.new(0, 55, 0, 55)
-FloatingBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
-FloatingBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-FloatingBtn.Text = "⋯"
-FloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FloatingBtn.TextSize = 24
-FloatingBtn.Font = Enum.Font.GothamBold
-FloatingBtn.AutoButtonColor = false
-FloatingBtn.ZIndex = 100
-FloatingBtn.Parent = ScreenGui
-
-Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(1, 0)
-local BtnStroke = Instance.new("UIStroke", FloatingBtn)
-BtnStroke.Color = Color3.fromRGB(80, 80, 80)
-BtnStroke.Thickness = 1.5
-
--- =====================================================================
--- 3. MAIN MENU KÈM HEADER VÀ NÚT 'X'
--- =====================================================================
 local MainMenu = Instance.new("Frame")
-MainMenu.Size = UDim2.new(0, 400, 0, 300)
-MainMenu.Position = UDim2.new(0.5, -200, 0.5, -150)
-MainMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainMenu.Size = UDim2.new(0, 450, 0, 300)
+MainMenu.Position = UDim2.new(0.5, -225, 0.5, -150)
+MainMenu.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainMenu.ClipsDescendants = true
+MainMenu.ZIndex = 10
 MainMenu.Visible = false
-MainMenu.ZIndex = 50
 MainMenu.Parent = ScreenGui
+Instance.new("UICorner", MainMenu).CornerRadius = UDim.new(0, 10)
+local MenuStroke = Instance.new("UIStroke", MainMenu)
+table.insert(ThemeObjects.Accents, MenuStroke)
+table.insert(ThemeObjects.Backgrounds, MainMenu)
 
-Instance.new("UICorner", MainMenu).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainMenu).Color = Color3.fromRGB(60, 60, 60)
-
-local MenuScale = Instance.new("UIScale")
+local MenuScale = Instance.new("UIScale", MainMenu)
 MenuScale.Scale = 0.8
-MenuScale.Parent = MainMenu
 
--- Header (Tiêu đề + Nút X)
+-- Thanh Header & Nút X (Đóng UI)
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 40)
+Header.Size = UDim2.new(1, 0, 0, 35)
 Header.BackgroundTransparency = 1
+Header.ZIndex = 11
 Header.Parent = MainMenu
+MakeDraggable(Header) -- Cho phép kéo menu bằng Header
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "MODERN HUB MENU"
+Title.Text = "FLUID UI - MAIN MENU"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
+Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 11
 Title.Parent = Header
+table.insert(ThemeObjects.Texts, Title)
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 14
+CloseBtn.TextSize = 12
 CloseBtn.AutoButtonColor = false
+CloseBtn.ZIndex = 12
 CloseBtn.Parent = Header
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.ClipsDescendants = true
 
--- Vùng chứa Nội dung cuộn
-local ContentArea = Instance.new("ScrollingFrame")
-ContentArea.Size = UDim2.new(1, -20, 1, -50)
-ContentArea.Position = UDim2.new(0, 10, 0, 40)
-ContentArea.BackgroundTransparency = 1
-ContentArea.ScrollBarThickness = 4
-ContentArea.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
-ContentArea.Parent = MainMenu
+-- Khung Tab (Trái) & Nội dung (Phải)
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 120, 1, -35)
+Sidebar.Position = UDim2.new(0, 0, 0, 35)
+Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Sidebar.BorderSizePixel = 0
+Sidebar.ZIndex = 11
+Sidebar.Parent = MainMenu
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 8)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = ContentArea
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, -120, 1, -35)
+ContentContainer.Position = UDim2.new(0, 120, 0, 35)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.ZIndex = 11
+ContentContainer.Parent = MainMenu
+
+local TabList = Instance.new("UIListLayout")
+TabList.SortOrder = Enum.SortOrder.LayoutOrder
+TabList.Padding = UDim.new(0, 5)
+TabList.Parent = Sidebar
+Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
 
 -- =====================================================================
--- 4. HỆ THỐNG DRAG & TOGGLE (NÚT NỔI VÀ MENU)
+-- 5. ĐIỀU KHIỂN TOGGLE MENU
 -- =====================================================================
 local MenuVisible = false
 local IsAnimating = false
@@ -737,15 +248,16 @@ local function ToggleMenu()
     if IsAnimating then return end
     IsAnimating = true
     MenuVisible = not MenuVisible
-
     if MenuVisible then
         MainMenu.Visible = true
         MenuScale.Scale = 0.8
-        local tween = TweenService:Create(MenuScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1})
+        TweenService:Create(MenuScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        local tween = TweenService:Create(MainMenu, TweenInfo.new(0.2), {BackgroundTransparency = 0})
         tween:Play()
         tween.Completed:Connect(function() IsAnimating = false end)
     else
-        local tween = TweenService:Create(MenuScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.8})
+        TweenService:Create(MenuScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.9}):Play()
+        local tween = TweenService:Create(MainMenu, TweenInfo.new(0.2), {BackgroundTransparency = 1})
         tween:Play()
         tween.Completed:Connect(function()
             MainMenu.Visible = false
@@ -754,181 +266,324 @@ local function ToggleMenu()
     end
 end
 
+MakeDraggable(FloatingBtn, function(x, y)
+    CreateRipple(FloatingBtn, x, y)
+    ToggleMenu()
+end)
+
 CloseBtn.MouseButton1Click:Connect(function()
+    CreateRipple(CloseBtn)
     if MenuVisible then ToggleMenu() end
 end)
 
-local Dragging, DragStartPos, StartGuiPos
-local ClickThreshold = 5 -- Chống trùng lặp Drag và Click
+-- =====================================================================
+-- 6. UI LIBRARY ENGINE (Tạo Tab, Button, Toggle động)
+-- =====================================================================
+local Library = { Tabs = {} }
+local FirstTab = true
 
-FloatingBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStartPos = input.Position
-        StartGuiPos = FloatingBtn.Position
-        TweenService:Create(FloatingBtn, TweenInfo.new(0.1), {Size = UDim2.new(0, 50, 0, 50), BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
+function Library:CreateTab(name)
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Size = UDim2.new(1, 0, 0, 35)
+    TabBtn.BackgroundTransparency = 1
+    TabBtn.Text = name
+    TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabBtn.Font = Enum.Font.GothamBold
+    TabBtn.TextSize = 13
+    TabBtn.ZIndex = 12
+    TabBtn.Parent = Sidebar
+    
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 3, 0, 20)
+    Indicator.Position = UDim2.new(0, 0, 0.5, -10)
+    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Indicator.BackgroundTransparency = FirstTab and 0 or 1
+    Indicator.ZIndex = 12
+    Indicator.Parent = TabBtn
+    table.insert(ThemeObjects.Accents, Indicator)
+    
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1, -20, 1, -20)
+    Page.Position = UDim2.new(0, 10, 0, 10)
+    Page.BackgroundTransparency = 1
+    Page.ScrollBarThickness = 3
+    Page.Visible = FirstTab
+    Page.ZIndex = 12
+    Page.Parent = ContentContainer
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Padding = UDim.new(0, 8)
+    Layout.Parent = Page
+    
+    table.insert(self.Tabs, {Btn = TabBtn, Page = Page, Indicator = Indicator})
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, t in pairs(self.Tabs) do
+            t.Page.Visible = (t.Page == Page)
+            TweenService:Create(t.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = (t.Page == Page) and 0 or 1}):Play()
+            TweenService:Create(t.Btn, TweenInfo.new(0.2), {TextColor3 = (t.Page == Page) and Color3.fromRGB(255,255,255) or Color3.fromRGB(150,150,150)}):Play()
+        end
+    end)
+    FirstTab = false
+    
+    local Elements = {}
+    
+    function Elements:CreateToggle(text, callback)
+        local state = false
+        local TglFrame = Instance.new("TextButton")
+        TglFrame.Size = UDim2.new(1, 0, 0, 40)
+        TglFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        TglFrame.Text = ""
+        TglFrame.AutoButtonColor = false
+        TglFrame.ClipsDescendants = true
+        TglFrame.ZIndex = 13
+        TglFrame.Parent = Page
+        Instance.new("UICorner", TglFrame).CornerRadius = UDim.new(0, 6)
         
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                Dragging = false
-                TweenService:Create(FloatingBtn, TweenInfo.new(0.1), {Size = UDim2.new(0, 55, 0, 55), BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
-                
-                -- Phân biệt nhấn và kéo
-                local dist = (input.Position - DragStartPos).Magnitude
-                if dist <= ClickThreshold then
-                    ToggleMenu()
+        local Lbl = Instance.new("TextLabel")
+        Lbl.Size = UDim2.new(1, -60, 1, 0)
+        Lbl.Position = UDim2.new(0, 10, 0, 0)
+        Lbl.BackgroundTransparency = 1
+        Lbl.Text = text
+        Lbl.TextColor3 = Color3.fromRGB(230, 230, 230)
+        Lbl.Font = Enum.Font.GothamBold
+        Lbl.TextSize = 13
+        Lbl.TextXAlignment = Enum.TextXAlignment.Left
+        Lbl.ZIndex = 14
+        Lbl.Parent = TglFrame
+        
+        local CheckBg = Instance.new("Frame")
+        CheckBg.Size = UDim2.new(0, 40, 0, 20)
+        CheckBg.Position = UDim2.new(1, -50, 0.5, -10)
+        CheckBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        CheckBg.ZIndex = 14
+        CheckBg.Parent = TglFrame
+        Instance.new("UICorner", CheckBg).CornerRadius = UDim.new(1, 0)
+        
+        local CheckCircle = Instance.new("Frame")
+        CheckCircle.Size = UDim2.new(0, 16, 0, 16)
+        CheckCircle.Position = UDim2.new(0, 2, 0.5, -8)
+        CheckCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        CheckCircle.ZIndex = 15
+        CheckCircle.Parent = CheckBg
+        Instance.new("UICorner", CheckCircle).CornerRadius = UDim.new(1, 0)
+        
+        TglFrame.MouseButton1Click:Connect(function(x, y)
+            CreateRipple(TglFrame, x, y)
+            state = not state
+            local posX = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+            TweenService:Create(CheckCircle, TweenInfo.new(0.2), {Position = posX}):Play()
+            
+            if state then
+                -- Đổi màu background toggle thành Accent Color thay vì fixed color
+                table.insert(ThemeObjects.Accents, CheckBg)
+            else
+                for i, v in ipairs(ThemeObjects.Accents) do
+                    if v == CheckBg then table.remove(ThemeObjects.Accents, i) end
                 end
+                TweenService:Create(CheckBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}):Play()
             end
+            
+            if callback then callback(state) end
         end)
     end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - DragStartPos
-        local view = workspace.CurrentCamera.ViewportSize
-        local newX = math.clamp(StartGuiPos.X.Offset + delta.X, 0, view.X - FloatingBtn.AbsoluteSize.X)
-        local newY = math.clamp(StartGuiPos.Y.Offset + delta.Y, 0, view.Y - FloatingBtn.AbsoluteSize.Y)
+    
+    function Elements:CreateButton(text, callback)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(1, 0, 0, 40)
+        Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        Btn.Text = text
+        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Btn.Font = Enum.Font.GothamBold
+        Btn.TextSize = 13
+        Btn.AutoButtonColor = false
+        Btn.ClipsDescendants = true
+        Btn.ZIndex = 13
+        Btn.Parent = Page
+        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
         
-        TweenService:Create(FloatingBtn, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {
-            Position = UDim2.new(0, newX, 0, newY)
-        }):Play()
+        local Stroke = Instance.new("UIStroke", Btn)
+        Stroke.Color = Color3.fromRGB(50, 50, 50)
+        
+        Btn.MouseEnter:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}):Play() end)
+        Btn.MouseLeave:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play() end)
+        
+        Btn.MouseButton1Click:Connect(function(x, y)
+            CreateRipple(Btn, x, y)
+            if callback then callback() end
+        end)
+    end
+    
+    function Elements:CreateLabel(text)
+        local Lbl = Instance.new("TextLabel")
+        Lbl.Size = UDim2.new(1, 0, 0, 30)
+        Lbl.BackgroundTransparency = 1
+        Lbl.Text = text
+        Lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+        Lbl.Font = Enum.Font.Gotham
+        Lbl.TextSize = 13
+        Lbl.TextXAlignment = Enum.TextXAlignment.Left
+        Lbl.ZIndex = 13
+        Lbl.Parent = Page
+        
+        -- Return function để update text (Dành cho Info tab)
+        return function(newText) Lbl.Text = newText end
+    end
+    
+    return Elements
+end
+
+-- =====================================================================
+-- 7. THEME & FPS MANAGER
+-- =====================================================================
+
+local ColorsList = {
+    ["Black"] = Color3.fromRGB(40, 40, 40),
+    ["White"] = Color3.fromRGB(240, 240, 240),
+    ["Gray"] = Color3.fromRGB(120, 120, 120),
+    ["Blue"] = Color3.fromRGB(0, 150, 255),
+    ["Dark Blue"] = Color3.fromRGB(0, 50, 200),
+    ["Red"] = Color3.fromRGB(255, 50, 50),
+    ["Dark Red"] = Color3.fromRGB(150, 0, 0),
+    ["Green"] = Color3.fromRGB(0, 255, 100),
+    ["Lime"] = Color3.fromRGB(150, 255, 50),
+    ["Yellow"] = Color3.fromRGB(255, 200, 0),
+    ["Orange"] = Color3.fromRGB(255, 120, 0),
+    ["Purple"] = Color3.fromRGB(150, 50, 255),
+    ["Pink"] = Color3.fromRGB(255, 100, 200),
+    ["Cyan"] = Color3.fromRGB(0, 200, 255)
+}
+
+local function UpdateTheme(color3)
+    for _, obj in ipairs(ThemeObjects.Accents) do
+        if obj:IsA("UIStroke") then
+            TweenService:Create(obj, TweenInfo.new(0.3), {Color = color3}):Play()
+        elseif obj:IsA("GuiObject") then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundColor3 = color3}):Play()
+        end
+    end
+    for _, obj in ipairs(ThemeObjects.Texts) do
+        TweenService:Create(obj, TweenInfo.new(0.3), {TextColor3 = color3}):Play()
+    end
+end
+
+-- Vòng lặp cập nhật FPS và Theme Động (Rainbow/Secret)
+local frames = 0
+local lastUpdate = tick()
+local InfoThemeUpdate, InfoFPSUpdate
+
+RunService.RenderStepped:Connect(function(dt)
+    frames = frames + 1
+    local currentTime = tick()
+    
+    -- Cập nhật màu động
+    if IsRainbow or IsSecret then
+        local hue = currentTime % 5 / 5
+        local rgb = Color3.fromHSV(hue, 1, 1)
+        UpdateTheme(rgb)
+        if InfoThemeUpdate then InfoThemeUpdate("Current Theme: " .. (IsSecret and "Secret" or "Rainbow")) end
+    end
+    
+    -- FPS Logic (1 lần/giây)
+    if currentTime - lastUpdate >= 1 then
+        local fps = math.floor(frames / (currentTime - lastUpdate))
+        frames = 0
+        lastUpdate = currentTime
+        
+        FPSCounter.Text = "FPS : " .. tostring(fps)
+        if InfoFPSUpdate then InfoFPSUpdate("Current FPS: " .. tostring(fps)) end
+        
+        local fpsColor
+        if fps > 300 then
+            fpsColor = Color3.fromHSV(currentTime % 2 / 2, 1, 1)
+        elseif fps >= 31 then
+            fpsColor = Color3.fromRGB(50, 255, 50) -- Xanh lá
+        elseif fps >= 11 then
+            fpsColor = Color3.fromRGB(255, 255, 50) -- Vàng
+        else
+            fpsColor = Color3.fromRGB(255, 50, 50) -- Đỏ
+        end
+        FPSCounter.TextColor3 = fpsColor
     end
 end)
 
 -- =====================================================================
--- 5. THƯ VIỆN TẠO UI BẰNG INSTANCE (ĐỂ KHÔNG BỊ TRỐNG)
--- =====================================================================
-local function CreateLabel(text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 30)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "  " .. text
-    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 14
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = ContentArea
-    return lbl
-end
-
-local function CreateButton(text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
-    btn.AutoButtonColor = false
-    btn.Parent = ContentArea
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    
-    btn.MouseButton1Click:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
-        task.wait(0.1)
-        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-        callback()
-    end)
-end
-
-local function CreateToggle(text, callback)
-    local state = false
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 40)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    frame.Parent = ContentArea
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -60, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 14
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-    
-    local checkBg = Instance.new("Frame")
-    checkBg.Size = UDim2.new(0, 40, 0, 20)
-    checkBg.Position = UDim2.new(1, -50, 0.5, -10)
-    checkBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    checkBg.Parent = frame
-    Instance.new("UICorner", checkBg).CornerRadius = UDim.new(1, 0)
-    
-    local checkCircle = Instance.new("Frame")
-    checkCircle.Size = UDim2.new(0, 16, 0, 16)
-    checkCircle.Position = UDim2.new(0, 2, 0.5, -8)
-    checkCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    checkCircle.Parent = checkBg
-    Instance.new("UICorner", checkCircle).CornerRadius = UDim.new(1, 0)
-    
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.Parent = frame
-    
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        local xPos = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        local bgColor = state and Color3.fromRGB(85, 255, 127) or Color3.fromRGB(50, 50, 50)
-        
-        TweenService:Create(checkCircle, TweenInfo.new(0.2), {Position = xPos}):Play()
-        TweenService:Create(checkBg, TweenInfo.new(0.2), {BackgroundColor3 = bgColor}):Play()
-        callback(state)
-    end)
-end
-
--- =====================================================================
--- 6. GỌI HÀM VÀ THỰC THI CÁC CHỨC NĂNG YÊU CẦU
+-- 8. KHỞI TẠO NỘI DUNG TABS
 -- =====================================================================
 
--- Logic lưu các GUI bị ẩn
-local hiddenGUIs = {}
+local TabMain = Library:CreateTab("Main")
+local TabTheme = Library:CreateTab("Theme")
+local TabInfo = Library:CreateTab("Info")
 
-CreateToggle("Black Screen", function(state)
+-- [TAB 1: MAIN]
+local HiddenGUIs = {}
+
+TabMain:CreateToggle("Black Screen", function(state)
     BlackScreen.Visible = state
 end)
 
-CreateToggle("Hide GUI (Game ScreenGuis)", function(state)
+TabMain:CreateToggle("Hide All GUI", function(state)
     if state then
-        -- Duyệt qua PlayerGui để ẩn mọi thứ trừ Hub này
         for _, gui in ipairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Name ~= "UltimateFluidHub" and gui.Enabled then
-                hiddenGUIs[gui] = true
+            if gui:IsA("ScreenGui") and gui.Name ~= "UltimateFluidUI_Rewrite" and gui.Enabled then
+                HiddenGUIs[gui] = true
                 gui.Enabled = false
             end
         end
     else
-        -- Hiện lại các GUI đã bị ẩn
-        for gui, _ in pairs(hiddenGUIs) do
-            if gui and gui.Parent then
-                gui.Enabled = true
-            end
+        for gui, _ in pairs(HiddenGUIs) do
+            if gui and gui.Parent then gui.Enabled = true end
         end
-        table.clear(hiddenGUIs) -- Xóa lịch sử
+        table.clear(HiddenGUIs)
     end
 end)
 
-CreateButton("Reset GUI Position", function()
-    -- Khôi phục vị trí mặc định cho Menu và nút nổi
-    TweenService:Create(FloatingBtn, TweenInfo.new(0.3), {Position = UDim2.new(0.1, 0, 0.1, 0)}):Play()
-    TweenService:Create(MainMenu, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -200, 0.5, -150)}):Play()
+TabMain:CreateToggle("FPS Counter", function(state)
+    FPSCounter.Visible = state
 end)
 
-CreateButton("Destroy GUI", function()
-    -- Khôi phục GUI nếu đang bị ẩn trước khi tự hủy
-    for gui, _ in pairs(hiddenGUIs) do
+TabMain:CreateButton("Destroy GUI", function()
+    for gui, _ in pairs(HiddenGUIs) do
         if gui and gui.Parent then gui.Enabled = true end
     end
     ScreenGui:Destroy()
 end)
 
-CreateLabel("Version: 1.0.0")
-CreateLabel("Status: Active & Undetected")
+-- [TAB 2: THEME]
+local ThemeList = {
+    "Black", "White", "Gray", "Blue", "Dark Blue", "Red", "Dark Red", 
+    "Green", "Lime", "Yellow", "Orange", "Purple", "Pink", "Cyan", 
+    "Rainbow", "Secret"
+}
 
--- Tự động mở menu lần đầu chạy script
-ToggleMenu()
+for _, tName in ipairs(ThemeList) do
+    TabTheme:CreateButton("Apply Theme: " .. tName, function()
+        IsRainbow = (tName == "Rainbow")
+        IsSecret = (tName == "Secret")
+        
+        if not IsRainbow and not IsSecret then
+            CurrentTheme = tName
+            UpdateTheme(ColorsList[tName])
+            if InfoThemeUpdate then InfoThemeUpdate("Current Theme: " .. tName) end
+        end
+        
+        -- Hiệu ứng Glow/Gradient đặc biệt cho Secret
+        if IsSecret then
+            MenuStroke.Thickness = 3
+        else
+            MenuStroke.Thickness = 1
+        end
+    end)
+end
+
+-- [TAB 3: INFO]
+TabInfo:CreateLabel("Script Name: FLUID UI REWRITE")
+TabInfo:CreateLabel("Version: " .. ScriptVersion)
+InfoFPSUpdate = TabInfo:CreateLabel("Current FPS: Calculating...")
+InfoThemeUpdate = TabInfo:CreateLabel("Current Theme: " .. CurrentTheme)
+TabInfo:CreateLabel("Status: Premium - Undetected")
+
+-- Khởi chạy Theme mặc định
+UpdateTheme(ColorsList["Blue"])
+ToggleMenu() -- Tự động mở menu lần đầu
