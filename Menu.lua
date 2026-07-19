@@ -1,7 +1,7 @@
 -- ==========================================================
 -- TÊN: SIMPLE HUB V2 - SPAWN, LOCK & AUTO CLICKER/PRESSER
 -- PHIÊN BẢN: 1.0
--- TÁC GIẢ: GEMINI
+-- TÁC GIẢ: @2024nam8,@MeowLeoke9
 -- ==========================================================
 
 local Players = game:GetService("Players")
