@@ -1,7 +1,7 @@
 -- ==========================================================
 -- TÊN: SIMPLE HUB V2 - SPAWN, LOCK & AUTO CLICKER/PRESSER
 -- PHIÊN BẢN: 1.0
--- TÁC GIẢ: @2024nam8,@MeowLeoke9
+-- TÁC GIẢ: 2024nam8
 -- ==========================================================
 
 local Players = game:GetService("Players")
@@ -548,6 +548,4 @@ end)
 
 -- Khởi tạo ban đầu
 switchTab(1)
-if player.Character then 
-	updateLockState()
- end
+if player.Character then updateLockState() end
