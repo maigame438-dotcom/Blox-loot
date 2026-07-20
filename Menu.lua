@@ -1,307 +1,313 @@
--- ==========================================================
--- TÊN: SIMPLE HUB - SCRIPT HỖ TRỢ SPAWN VÀ LOCK POSITION
--- ==========================================================
-
+-- LocalScript: SIMPLE HUB (Lock Position)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- ==========================================================
--- BIẾN LƯU TRỮ TRẠNG THÁI (VARIABLES)
--- ==========================================================
-local savedSpawnCFrame = nil
-local isLocked = false
-local isMenuOpen = false
-
--- Màu sắc chủ đạo (Dark Theme & Purple)
-local COLOR_BG = Color3.fromRGB(20, 20, 20)
-local COLOR_SECTION = Color3.fromRGB(30, 30, 30)
-local COLOR_PURPLE = Color3.fromRGB(123, 44, 191)
-local COLOR_WHITE = Color3.fromRGB(255, 255, 255)
-local COLOR_GRAY = Color3.fromRGB(150, 150, 150)
-
--- ==========================================================
--- HÀM TIỆN ÍCH TẠO UI (UI BUILDER)
--- ==========================================================
-local function createCorner(parent, radius)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = parent
-	return corner
-end
-
--- ==========================================================
--- XÂY DỰNG GIAO DIỆN (GUI CREATION)
--- ==========================================================
+--------------------------------------------------------------------------------
+-- 1. TẠO GIAO DIỆN (UI CREATION)
+--------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SimpleHubUI"
+ScreenGui.Name = "SimpleHubGui"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
 
--- 1. NÚT MỞ MENU (OPEN BUTTON - TRÒN)
-local OpenButton = Instance.new("TextButton")
-OpenButton.Name = "OpenButton"
-OpenButton.Size = UDim2.new(0, 50, 0, 50)
-OpenButton.Position = UDim2.new(0.5, -25, 0, 20) -- Nằm phía trên cùng giữa màn hình
-OpenButton.BackgroundColor3 = COLOR_BG
-OpenButton.Text = "•••"
-OpenButton.TextColor3 = COLOR_WHITE
-OpenButton.TextSize = 20
-OpenButton.Font = Enum.Font.GothamBold
-OpenButton.AutoButtonColor = false
-OpenButton.Parent = ScreenGui
-createCorner(OpenButton, 25) -- Bo tròn 100%
+-- Nút Bật/Tắt Menu dạng hình tròn "..."
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 15, 30)
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "..."
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 24
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Parent = ScreenGui
 
-local UIStrokeBtn = Instance.new("UIStroke")
-UIStrokeBtn.Color = COLOR_PURPLE
-UIStrokeBtn.Thickness = 2
-UIStrokeBtn.Parent = OpenButton
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = ToggleButton
 
--- 2. KHUNG MAIN MENU (MAIN FRAME)
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(130, 80, 230)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleButton
+
+-- Khung chính của Menu (Main Container)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 350, 0, 380)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -190)
-MainFrame.BackgroundColor3 = COLOR_BG
+MainFrame.Size = UDim2.new(0, 280, 0, 220)
+MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 12, 22)
+MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Thu nhỏ ban đầu để tạo hiệu ứng Tween
-MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
-createCorner(MainFrame, 12)
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = COLOR_PURPLE
-MainStroke.Thickness = 1
+MainStroke.Color = Color3.fromRGB(110, 60, 200)
+MainStroke.Thickness = 2
 MainStroke.Parent = MainFrame
 
--- Top Bar (Tiêu đề & Nút Đóng)
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 50)
-TopBar.BackgroundTransparency = 1
-TopBar.Parent = MainFrame
+-- Thanh tiêu đề Header
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 45)
+Header.BackgroundTransparency = 1
+Header.Parent = MainFrame
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -60, 1, 0)
-Title.Position = UDim2.new(0, 20, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Simple Hub"
-Title.TextColor3 = COLOR_WHITE
-Title.TextSize = 20
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
+local TitleIcon = Instance.new("TextLabel")
+TitleIcon.Size = UDim2.new(0, 30, 1, 0)
+TitleIcon.Position = UDim2.new(0, 10, 0, 0)
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Text = "🔒"
+TitleIcon.TextSize = 18
+TitleIcon.Parent = Header
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 150, 1, 0)
+TitleLabel.Position = UDim2.new(0, 40, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "SIMPLE HUB"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Header
 
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -40, 0.5, -15)
+CloseButton.Position = UDim2.new(1, -38, 0, 7)
 CloseButton.BackgroundTransparency = 1
 CloseButton.Text = "✕"
-CloseButton.TextColor3 = COLOR_GRAY
-CloseButton.TextSize = 20
+CloseButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseButton.TextSize = 16
 CloseButton.Font = Enum.Font.GothamBold
-CloseButton.Parent = TopBar
+CloseButton.Parent = Header
 
--- Vùng chứa tính năng (Content Container)
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -40, 1, -60)
-Content.Position = UDim2.new(0, 20, 0, 50)
-Content.BackgroundTransparency = 1
-Content.Parent = MainFrame
+-- Khung chứa tính năng LOCK
+local LockCard = Instance.new("Frame")
+LockCard.Name = "LockCard"
+LockCard.Size = UDim2.new(1, -20, 0, 85)
+LockCard.Position = UDim2.new(0, 10, 0, 50)
+LockCard.BackgroundColor3 = Color3.fromRGB(25, 20, 35)
+LockCard.BorderSizePixel = 0
+LockCard.Parent = MainFrame
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 15)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent = Content
+local CardCorner = Instance.new("UICorner")
+CardCorner.CornerRadius = UDim.new(0, 12)
+CardCorner.Parent = LockCard
 
--- ==========================================================
--- HÀM TẠO CÁC HÀNG TÍNH NĂNG (SECTION BUILDERS)
--- ==========================================================
-local function createFeatureRow(iconText, titleText, descText, buttonElement, layoutOrder)
-	local Row = Instance.new("Frame")
-	Row.Size = UDim2.new(1, 0, 0, 70)
-	Row.BackgroundColor3 = COLOR_SECTION
-	Row.LayoutOrder = layoutOrder
-	Row.Parent = Content
-	createCorner(Row, 10)
-	
-	local Icon = Instance.new("TextLabel")
-	Icon.Size = UDim2.new(0, 40, 0, 40)
-	Icon.Position = UDim2.new(0, 15, 0.5, -20)
-	Icon.BackgroundColor3 = COLOR_BG
-	Icon.Text = iconText
-	Icon.TextSize = 20
-	Icon.Parent = Row
-	createCorner(Icon, 20)
-	
-	local LabelContainer = Instance.new("Frame")
-	LabelContainer.Size = UDim2.new(1, -160, 1, 0)
-	LabelContainer.Position = UDim2.new(0, 65, 0, 0)
-	LabelContainer.BackgroundTransparency = 1
-	LabelContainer.Parent = Row
-	
-	local Title = Instance.new("TextLabel")
-	Title.Size = UDim2.new(1, 0, 0.5, 5)
-	Title.BackgroundTransparency = 1
-	Title.Text = titleText
-	Title.TextColor3 = COLOR_WHITE
-	Title.TextSize = 16
-	Title.Font = Enum.Font.GothamBold
-	Title.TextXAlignment = Enum.TextXAlignment.Left
-	Title.TextYAlignment = Enum.TextYAlignment.Bottom
-	Title.Parent = LabelContainer
-	
-	local Desc = Instance.new("TextLabel")
-	Desc.Size = UDim2.new(1, 0, 0.5, -5)
-	Desc.Position = UDim2.new(0, 0, 0.5, 5)
-	Desc.BackgroundTransparency = 1
-	Desc.Text = descText
-	Desc.TextColor3 = COLOR_GRAY
-	Desc.TextSize = 11
-	Desc.Font = Enum.Font.Gotham
-	Desc.TextWrapped = true
-	Desc.TextXAlignment = Enum.TextXAlignment.Left
-	Desc.TextYAlignment = Enum.TextYAlignment.Top
-	Desc.Parent = LabelContainer
-	
-	buttonElement.Position = UDim2.new(1, -85, 0.5, -17)
-	buttonElement.Parent = Row
-end
+local CardIcon = Instance.new("TextLabel")
+CardIcon.Size = UDim2.new(0, 35, 0, 35)
+CardIcon.Position = UDim2.new(0, 10, 0, 12)
+CardIcon.BackgroundColor3 = Color3.fromRGB(70, 30, 130)
+CardIcon.Text = "🔒"
+CardIcon.TextSize = 16
+CardIcon.Parent = LockCard
 
--- 3. CHỨC NĂNG: SET SPAWN
-local BtnSetSpawn = Instance.new("TextButton")
-BtnSetSpawn.Size = UDim2.new(0, 70, 0, 34)
-BtnSetSpawn.BackgroundColor3 = COLOR_PURPLE
-BtnSetSpawn.Text = "SET"
-BtnSetSpawn.TextColor3 = COLOR_WHITE
-BtnSetSpawn.Font = Enum.Font.GothamBold
-BtnSetSpawn.TextSize = 14
-createCorner(BtnSetSpawn, 6)
-createFeatureRow("📍", "Set Spawn", "Đặt điểm spawn tại vị trí hiện tại", BtnSetSpawn, 1)
+local CardIconCorner = Instance.new("UICorner")
+CardIconCorner.CornerRadius = UDim.new(0, 8)
+CardIconCorner.Parent = CardIcon
 
--- 4. CHỨC NĂNG: RESET SPAWN
-local BtnResetSpawn = Instance.new("TextButton")
-BtnResetSpawn.Size = UDim2.new(0, 70, 0, 34)
-BtnResetSpawn.BackgroundColor3 = COLOR_PURPLE
-BtnResetSpawn.Text = "RESET"
-BtnResetSpawn.TextColor3 = COLOR_WHITE
-BtnResetSpawn.Font = Enum.Font.GothamBold
-BtnResetSpawn.TextSize = 14
-createCorner(BtnResetSpawn, 6)
-createFeatureRow("🔄", "Reset Spawn", "Xóa spawn đã đặt, về spawn gốc", BtnResetSpawn, 2)
+local CardTitle = Instance.new("TextLabel")
+CardTitle.Size = UDim2.new(0, 120, 0, 20)
+CardTitle.Position = UDim2.new(0, 55, 0, 10)
+CardTitle.BackgroundTransparency = 1
+CardTitle.Text = "Lock Position"
+CardTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+CardTitle.TextSize = 14
+CardTitle.Font = Enum.Font.GothamBold
+CardTitle.TextXAlignment = Enum.TextXAlignment.Left
+CardTitle.Parent = LockCard
 
--- 5. CHỨC NĂNG: LOCK POSITION (TOGGLE)
-local ToggleFrame = Instance.new("TextButton")
-ToggleFrame.Size = UDim2.new(0, 50, 0, 26)
-ToggleFrame.BackgroundColor3 = COLOR_GRAY
-ToggleFrame.Text = ""
-createCorner(ToggleFrame, 13)
+local CardDesc = Instance.new("TextLabel")
+CardDesc.Size = UDim2.new(0, 140, 0, 40)
+CardDesc.Position = UDim2.new(0, 55, 0, 32)
+CardDesc.BackgroundTransparency = 1
+CardDesc.Text = "Khóa vị trí, không thể di chuyển, nhảy, hoặc bị đẩy lùi."
+CardDesc.TextColor3 = Color3.fromRGB(150, 150, 170)
+CardDesc.TextSize = 10
+CardDesc.Font = Enum.Font.Gotham
+CardDesc.TextWrapped = true
+CardDesc.TextXAlignment = Enum.TextXAlignment.Left
+CardDesc.TextYAlignment = Enum.TextYAlignment.Top
+CardDesc.Parent = LockCard
 
-local ToggleCircle = Instance.new("Frame")
-ToggleCircle.Size = UDim2.new(0, 20, 0, 20)
-ToggleCircle.Position = UDim2.new(0, 3, 0.5, -10)
-ToggleCircle.BackgroundColor3 = COLOR_WHITE
-ToggleCircle.Parent = ToggleFrame
-createCorner(ToggleCircle, 10)
+-- Công tắc Toggle Switch
+local SwitchBg = Instance.new("TextButton")
+SwitchBg.Name = "SwitchBg"
+SwitchBg.Size = UDim2.new(0, 45, 0, 24)
+SwitchBg.Position = UDim2.new(1, -55, 0, 18)
+SwitchBg.BackgroundColor3 = Color3.fromRGB(50, 45, 65)
+SwitchBg.BorderSizePixel = 0
+SwitchBg.Text = ""
+SwitchBg.Parent = LockCard
 
-createFeatureRow("🔒", "Lock Position", "Khóa vị trí, không thể di chuyển, nhảy, hoặc bị đẩy", ToggleFrame, 3)
+local SwitchCorner = Instance.new("UICorner")
+SwitchCorner.CornerRadius = UDim.new(1, 0)
+SwitchCorner.Parent = SwitchBg
 
+local SwitchCircle = Instance.new("Frame")
+SwitchCircle.Size = UDim2.new(0, 18, 0, 18)
+SwitchCircle.Position = UDim2.new(0, 3, 0, 3)
+SwitchCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+SwitchCircle.BorderSizePixel = 0
+SwitchCircle.Parent = SwitchBg
 
--- ==========================================================
--- HỆ THỐNG LOGIC (CORE FUNCTIONS)
--- ==========================================================
+local CircleCorner = Instance.new("UICorner")
+CircleCorner.CornerRadius = UDim.new(1, 0)
+CircleCorner.Parent = SwitchCircle
 
--- Hàm hiển thị thông báo
-local function notify(title, text)
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = title;
-			Text = text;
-			Duration = 3;
-		})
-	end)
-end
+-- Thanh hướng dẫn di chuyển menu bên dưới
+local DragFooter = Instance.new("Frame")
+DragFooter.Size = UDim2.new(1, -20, 0, 40)
+DragFooter.Position = UDim2.new(0, 10, 0, 145)
+DragFooter.BackgroundColor3 = Color3.fromRGB(25, 20, 35)
+DragFooter.BorderSizePixel = 0
+DragFooter.Parent = MainFrame
 
--- Hàm đóng mở Menu với hiệu ứng Tween
+local DragFooterCorner = Instance.new("UICorner")
+DragFooterCorner.CornerRadius = UDim.new(0, 10)
+DragFooterCorner.Parent = DragFooter
+
+local DragText = Instance.new("TextLabel")
+DragText.Size = UDim2.new(1, 0, 1, 0)
+DragText.BackgroundTransparency = 1
+DragText.Text = "☝️  Giữ R và kéo để di chuyển menu"
+DragText.TextColor3 = Color3.fromRGB(180, 180, 200)
+DragText.TextSize = 11
+DragText.Font = Enum.Font.Gotham
+DragText.Parent = DragFooter
+
+--------------------------------------------------------------------------------
+-- 2. ĐIỀU KHIỂN BẬT/TẮT & TWEEN ANIMATION
+--------------------------------------------------------------------------------
+local isOpen = true
+local originalSize = UDim2.new(0, 280, 0, 220)
+local closedSize = UDim2.new(0, 0, 0, 0)
+
 local function toggleMenu()
-	isMenuOpen = not isMenuOpen
-	if isMenuOpen then
+	isOpen = not isOpen
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	
+	if isOpen then
 		MainFrame.Visible = true
-		local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 350, 0, 380)})
-		tween:Play()
+		TweenService:Create(MainFrame, tweenInfo, {Size = originalSize}):Play()
 	else
-		local tween = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
+		local tween = TweenService:Create(MainFrame, tweenInfo, {Size = closedSize})
 		tween:Play()
-		tween.Completed:Wait()
-		MainFrame.Visible = false
+		tween.Completed:Connect(function()
+			if not isOpen then
+				MainFrame.Visible = false
+			end
+		end)
 	end
 end
 
-OpenButton.Activated:Connect(toggleMenu)
-CloseButton.Activated:Connect(toggleMenu)
+ToggleButton.MouseButton1Click:Connect(toggleMenu)
+CloseButton.MouseButton1Click:Connect(toggleMenu)
 
--- Logic SET SPAWN
-BtnSetSpawn.Activated:Connect(function()
-	local char = player.Character
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		savedSpawnCFrame = char.HumanoidRootPart.CFrame
-		notify("Simple Hub", "Spawn Saved!")
+--------------------------------------------------------------------------------
+-- 3. KÉO/VUỐT MENU (GIỮ PHÍM R)
+--------------------------------------------------------------------------------
+local isHoldingR = false
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.R then
+		isHoldingR = true
+	end
+	
+	if isHoldingR and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
 	end
 end)
 
--- Logic RESET SPAWN
-BtnResetSpawn.Activated:Connect(function()
-	savedSpawnCFrame = nil
-	notify("Simple Hub", "Spawn Reset!")
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.R then
+		isHoldingR = false
+		dragging = false
+	end
 end)
 
--- Logic LOCK POSITION
-local function updateLockState()
-	local char = player.Character
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		char.HumanoidRootPart.Anchored = isLocked
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and isHoldingR and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		local newPosition = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+		TweenService:Create(MainFrame, TweenInfo.new(0.05), {Position = newPosition}):Play()
 	end
-end
+end)
 
-ToggleFrame.Activated:Connect(function()
+--------------------------------------------------------------------------------
+-- 4. CHỨC NĂNG LOCK POSITION (KHÓA VỊ TRÍ)
+--------------------------------------------------------------------------------
+local isLocked = false
+local lockConnection = nil
+local lockedCFrame = nil
+
+local function toggleLockPosition()
 	isLocked = not isLocked
 	
-	-- Hiệu ứng Toggle Switch
-	local goalColor = isLocked and COLOR_PURPLE or COLOR_GRAY
-	local goalPos = isLocked and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	
-	TweenService:Create(ToggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = goalColor}):Play()
-	TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = goalPos}):Play()
-	
-	updateLockState()
-end)
-
--- ==========================================================
--- XỬ LÝ NHÂN VẬT HỒI SINH (RESPAWN HANDLING)
--- ==========================================================
-player.CharacterAdded:Connect(function(char)
-	local hrp = char:WaitForChild("HumanoidRootPart", 5)
-	local humanoid = char:WaitForChild("Humanoid", 5)
-	
-	if not hrp or not humanoid then return end
-	
-	-- Đợi một khoảnh khắc nhỏ để cơ chế spawn mặc định của Roblox hoàn tất trước khi ghi đè
-	task.wait(0.1)
-	
-	-- Xử lý Set Spawn
-	if savedSpawnCFrame then
-		char:PivotTo(savedSpawnCFrame)
-	end
-	
-	-- Xử lý Lock Position khi respawn
 	if isLocked then
-		hrp.Anchored = true
+		-- Animation Switch On
+		TweenService:Create(SwitchBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(140, 60, 240)}):Play()
+		TweenService:Create(SwitchCircle, tweenInfo, {Position = UDim2.new(0, 24, 0, 3)}):Play()
+		
+		-- Lưu vị trí hiện tại
+		local character = LocalPlayer.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			lockedCFrame = character.HumanoidRootPart.CFrame
+			
+			-- Khóa liên tục trên từng khung hình (Ngăn di chuyển, va chạm, nhảy)
+			lockConnection = RunService.RenderStepped:Connect(function()
+				if isLocked and character and character:FindFirstChild("HumanoidRootPart") then
+					character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+					character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+					
+					-- Cho phép quay Camera/Xoay nhân vật nhưng giữ nguyên vị trí X, Y, Z
+					local currentLook = character.HumanoidRootPart.CFrame.Rotation
+					character.HumanoidRootPart.CFrame = CFrame.new(lockedCFrame.Position) * currentLook
+				end
+			end)
+		end
+	else
+		-- Animation Switch Off
+		TweenService:Create(SwitchBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(50, 45, 65)}):Play()
+		TweenService:Create(SwitchCircle, tweenInfo, {Position = UDim2.new(0, 3, 0, 3)}):Play()
+		
+		-- Hủy khóa
+		if lockConnection then
+			lockConnection:Disconnect()
+			lockConnection = nil
+		end
+		lockedCFrame = nil
 	end
-end)
-
--- Áp dụng ngay nếu nhân vật đã tồn tại khi chạy script
-if player.Character then
-	updateLockState()
 end
+
+SwitchBg.MouseButton1Click:Connect(toggleLockPosition)
