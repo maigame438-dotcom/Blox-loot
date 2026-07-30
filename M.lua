@@ -10,7 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- 1. XOÁ GUI CŨ NẾU ĐÃ CHẠY TRƯỚC ĐÓ
 -- ==========================================
-local guiName = "InfiniteFollow_GUI_V2"
+local guiName = "InfiniteFollow_Mobile_V3"
 if CoreGui:FindFirstChild(guiName) then
     CoreGui[guiName]:Destroy()
 end
@@ -36,13 +36,12 @@ local noclipConnection = nil
 local bodyVel = nil
 local bodyGyro = nil
 
--- BẢNG MÀU CHUẨN (Dựa trên ảnh thiết kế)
+-- BẢNG MÀU CHUẨN
 local colors = {
-    Bg = Color3.fromRGB(15, 15, 17),        -- Nền chính (Đen tuyền nhẹ)
-    PanelBg = Color3.fromRGB(22, 22, 25),   -- Nền cột/panel
-    ElementBg = Color3.fromRGB(30, 30, 35), -- Nền nút/list
-    Accent = Color3.fromRGB(107, 33, 168),  -- Màu tím IY
-    AccentHover = Color3.fromRGB(126, 34, 206),
+    Bg = Color3.fromRGB(15, 15, 17),        
+    PanelBg = Color3.fromRGB(22, 22, 25),   
+    ElementBg = Color3.fromRGB(30, 30, 35), 
+    Accent = Color3.fromRGB(107, 33, 168),  
     Green = Color3.fromRGB(34, 197, 94),
     Red = Color3.fromRGB(239, 68, 68),
     Text = Color3.fromRGB(255, 255, 255),
@@ -76,223 +75,166 @@ local function makeDraggable(guiObject, dragHandle)
 end
 
 -- ==========================================
--- 3. XÂY DỰNG GIAO DIỆN (UI COMPONENTS)
+-- 3. XÂY DỰNG GIAO DIỆN TỐI ƯU MOBILE (80% MÀN HÌNH NGANG)
 -- ==========================================
 
 -- [ NÚT TOGGLE IY ]
 local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-ToggleBtn.Position = UDim2.new(0, 20, 0, 20)
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
 ToggleBtn.BackgroundColor3 = colors.Bg
 ToggleBtn.Text = "IY"
 ToggleBtn.TextColor3 = colors.Text
 ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 20
+ToggleBtn.TextSize = 18
 ToggleBtn.Parent = ScreenGui
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(60, 60, 65)
 makeDraggable(ToggleBtn)
 
--- [ MAIN FRAME ]
+-- [ MAIN FRAME - Kích thước tối ưu cho đt màn hình ngang (Rộng 520, Cao 280) ]
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 600, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -300, 0.5, -210)
+MainFrame.Size = UDim2.new(0, 520, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -140)
 MainFrame.BackgroundColor3 = colors.Bg
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(40, 40, 45)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(50, 50, 55)
 
 -- [ TOPBAR ]
 local Topbar = Instance.new("Frame")
-Topbar.Size = UDim2.new(1, 0, 0, 40)
+Topbar.Size = UDim2.new(1, 0, 0, 32)
 Topbar.BackgroundColor3 = colors.Bg
 Topbar.Parent = MainFrame
 makeDraggable(MainFrame, Topbar)
-Instance.new("UIStroke", Topbar).Color = Color3.fromRGB(40, 40, 45)
+Instance.new("UIStroke", Topbar).Color = Color3.fromRGB(50, 50, 55)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -80, 1, 0)
-Title.Position = UDim2.new(0, 40, 0, 0)
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.new(0, 35, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Infinite Follow"
+Title.Text = "Infinite Follow (Mobile)"
 Title.TextColor3 = colors.Text
 Title.Font = Enum.Font.GothamMedium
-Title.TextSize = 15
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
 
 local IconMenu = Instance.new("TextLabel")
-IconMenu.Size = UDim2.new(0, 40, 1, 0)
+IconMenu.Size = UDim2.new(0, 30, 1, 0)
 IconMenu.BackgroundTransparency = 1
 IconMenu.Text = "≡"
 IconMenu.TextColor3 = colors.Text
 IconMenu.Font = Enum.Font.GothamBold
-IconMenu.TextSize = 18
+IconMenu.TextSize = 16
 IconMenu.Parent = Topbar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 40, 1, 0)
-CloseBtn.Position = UDim2.new(1, -40, 0, 0)
+CloseBtn.Size = UDim2.new(0, 35, 1, 0)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "X"
 CloseBtn.TextColor3 = colors.Text
 CloseBtn.Font = Enum.Font.GothamMedium
-CloseBtn.TextSize = 14
+CloseBtn.TextSize = 12
 CloseBtn.Parent = Topbar
 
 local MinimizeBtn = Instance.new("TextButton")
-MinimizeBtn.Size = UDim2.new(0, 40, 1, 0)
-MinimizeBtn.Position = UDim2.new(1, -80, 0, 0)
+MinimizeBtn.Size = UDim2.new(0, 35, 1, 0)
+MinimizeBtn.Position = UDim2.new(1, -70, 0, 0)
 MinimizeBtn.BackgroundTransparency = 1
 MinimizeBtn.Text = "—"
 MinimizeBtn.TextColor3 = colors.Text
 MinimizeBtn.Font = Enum.Font.GothamMedium
-MinimizeBtn.TextSize = 14
+MinimizeBtn.TextSize = 12
 MinimizeBtn.Parent = Topbar
 
--- [ LEFT PANEL (PLAYER LIST) ]
+-- [ CỘT TRÁI: DANH SÁCH PLAYERS ]
 local LeftPanel = Instance.new("Frame")
-LeftPanel.Size = UDim2.new(0, 270, 1, -50)
-LeftPanel.Position = UDim2.new(0, 10, 0, 45)
+LeftPanel.Size = UDim2.new(0, 230, 1, -40)
+LeftPanel.Position = UDim2.new(0, 8, 0, 36)
 LeftPanel.BackgroundColor3 = colors.PanelBg
 LeftPanel.Parent = MainFrame
 Instance.new("UICorner", LeftPanel).CornerRadius = UDim.new(0, 6)
 
 local ListTitle = Instance.new("TextLabel")
-ListTitle.Size = UDim2.new(1, -20, 0, 30)
-ListTitle.Position = UDim2.new(0, 10, 0, 5)
+ListTitle.Size = UDim2.new(1, -15, 0, 22)
+ListTitle.Position = UDim2.new(0, 8, 0, 4)
 ListTitle.BackgroundTransparency = 1
 ListTitle.Text = "PLAYERS IN SERVER"
 ListTitle.TextColor3 = colors.TextDim
 ListTitle.Font = Enum.Font.GothamMedium
-ListTitle.TextSize = 12
+ListTitle.TextSize = 10
 ListTitle.TextXAlignment = Enum.TextXAlignment.Left
 ListTitle.Parent = LeftPanel
 
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -70)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 35)
+ScrollFrame.Size = UDim2.new(1, -10, 1, -50)
+ScrollFrame.Position = UDim2.new(0, 5, 0, 26)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 3
 ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 ScrollFrame.Parent = LeftPanel
 local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Padding = UDim.new(0, 4)
 UIListLayout.Parent = ScrollFrame
 
-local ServerInfo = Instance.new("TextLabel")
-ServerInfo.Size = UDim2.new(1, -20, 0, 20)
-ServerInfo.Position = UDim2.new(0, 10, 1, -25)
-ServerInfo.BackgroundTransparency = 1
-ServerInfo.Text = "Online: 0 | Max: " .. Players.MaxPlayers
-ServerInfo.TextColor3 = colors.TextDim
-ServerInfo.Font = Enum.Font.Gotham
-ServerInfo.TextSize = 12
-ServerInfo.TextXAlignment = Enum.TextXAlignment.Left
-ServerInfo.Parent = LeftPanel
-
--- [ RIGHT PANEL (CONTROLS) ]
+-- [ CỘT PHẢI: ĐIỀU KHIỂN ]
 local RightPanel = Instance.new("Frame")
-RightPanel.Size = UDim2.new(1, -300, 1, -50)
-RightPanel.Position = UDim2.new(0, 290, 0, 45)
+RightPanel.Size = UDim2.new(1, -250, 1, -40)
+RightPanel.Position = UDim2.new(0, 244, 0, 36)
 RightPanel.BackgroundTransparency = 1
 RightPanel.Parent = MainFrame
 
 local SelectedTitle = Instance.new("TextLabel")
-SelectedTitle.Size = UDim2.new(1, 0, 0, 20)
+SelectedTitle.Size = UDim2.new(1, 0, 0, 16)
 SelectedTitle.BackgroundTransparency = 1
-SelectedTitle.Text = "SELECTED PLAYER"
-SelectedTitle.TextColor3 = colors.TextDim
-SelectedTitle.Font = Enum.Font.GothamMedium
-SelectedTitle.TextSize = 12
+SelectedTitle.Text = "SELECTED: NONE"
+SelectedTitle.TextColor3 = colors.Accent
+SelectedTitle.Font = Enum.Font.GothamBold
+SelectedTitle.TextSize = 11
 SelectedTitle.TextXAlignment = Enum.TextXAlignment.Left
 SelectedTitle.Parent = RightPanel
 
--- Avatar & Info
-local TargetAvatar = Instance.new("ImageLabel")
-TargetAvatar.Size = UDim2.new(0, 50, 0, 50)
-TargetAvatar.Position = UDim2.new(0, 0, 0, 25)
-TargetAvatar.BackgroundColor3 = colors.ElementBg
-TargetAvatar.Image = ""
-TargetAvatar.Parent = RightPanel
-Instance.new("UICorner", TargetAvatar).CornerRadius = UDim.new(1, 0)
-
-local TargetDisplay = Instance.new("TextLabel")
-TargetDisplay.Size = UDim2.new(1, -60, 0, 25)
-TargetDisplay.Position = UDim2.new(0, 60, 0, 25)
-TargetDisplay.BackgroundTransparency = 1
-TargetDisplay.Text = "None"
-TargetDisplay.TextColor3 = colors.Accent
-TargetDisplay.Font = Enum.Font.GothamBold
-TargetDisplay.TextSize = 18
-TargetDisplay.TextXAlignment = Enum.TextXAlignment.Left
-TargetDisplay.Parent = RightPanel
-
-local TargetUser = Instance.new("TextLabel")
-TargetUser.Size = UDim2.new(1, -60, 0, 20)
-TargetUser.Position = UDim2.new(0, 60, 0, 50)
-TargetUser.BackgroundTransparency = 1
-TargetUser.Text = "@none"
-TargetUser.TextColor3 = colors.TextDim
-TargetUser.Font = Enum.Font.Gotham
-TargetUser.TextSize = 13
-TargetUser.TextXAlignment = Enum.TextXAlignment.Left
-TargetUser.Parent = RightPanel
-
-local StatusFrame = Instance.new("Frame")
-StatusFrame.Size = UDim2.new(1, 0, 0, 30)
-StatusFrame.Position = UDim2.new(0, 0, 0, 85)
-StatusFrame.BackgroundColor3 = colors.PanelBg
-StatusFrame.Parent = RightPanel
-Instance.new("UICorner", StatusFrame).CornerRadius = UDim.new(0, 6)
-
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, 0, 1, 0)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "STATUS: NOT FOLLOWING"
-StatusLabel.TextColor3 = colors.Red
-StatusLabel.Font = Enum.Font.GothamBold
-StatusLabel.TextSize = 13
-StatusLabel.Parent = StatusFrame
-
--- Nút Start/Stop
+-- Nút Start / Stop thu gọn vừa màn hình ngang
 local StartBtn = Instance.new("TextButton")
-StartBtn.Size = UDim2.new(1, 0, 0, 35)
-StartBtn.Position = UDim2.new(0, 0, 0, 125)
+StartBtn.Size = UDim2.new(1, 0, 0, 30)
+StartBtn.Position = UDim2.new(0, 0, 0, 20)
 StartBtn.BackgroundColor3 = colors.Accent
 StartBtn.Text = "▶ Start Follow"
 StartBtn.TextColor3 = colors.Text
 StartBtn.Font = Enum.Font.GothamBold
-StartBtn.TextSize = 14
+StartBtn.TextSize = 12
 StartBtn.Parent = RightPanel
-Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 5)
 
 local StopBtn = Instance.new("TextButton")
-StopBtn.Size = UDim2.new(1, 0, 0, 35)
-StopBtn.Position = UDim2.new(0, 0, 0, 165)
+StopBtn.Size = UDim2.new(1, 0, 0, 26)
+StopBtn.Position = UDim2.new(0, 0, 0, 54)
 StopBtn.BackgroundColor3 = colors.ElementBg
 StopBtn.Text = "■ Stop Follow"
 StopBtn.TextColor3 = colors.Text
 StopBtn.Font = Enum.Font.GothamBold
-StopBtn.TextSize = 14
+StopBtn.TextSize = 12
 StopBtn.Parent = RightPanel
-Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 5)
 
--- Slider
+-- Slider Tốc độ
 local SpeedTitle = Instance.new("TextLabel")
-SpeedTitle.Size = UDim2.new(1, 0, 0, 20)
-SpeedTitle.Position = UDim2.new(0, 0, 0, 210)
+SpeedTitle.Size = UDim2.new(1, 0, 0, 18)
+SpeedTitle.Position = UDim2.new(0, 0, 0, 85)
 SpeedTitle.BackgroundTransparency = 1
-SpeedTitle.Text = "FOLLOW SPEED: 25"
+SpeedTitle.Text = "SPEED: 25"
 SpeedTitle.TextColor3 = colors.Text
 SpeedTitle.Font = Enum.Font.GothamMedium
-SpeedTitle.TextSize = 12
+SpeedTitle.TextSize = 11
 SpeedTitle.TextXAlignment = Enum.TextXAlignment.Left
 SpeedTitle.Parent = RightPanel
 
 local SliderBg = Instance.new("Frame")
-SliderBg.Size = UDim2.new(1, 0, 0, 6)
-SliderBg.Position = UDim2.new(0, 0, 0, 235)
+SliderBg.Size = UDim2.new(1, 0, 0, 5)
+SliderBg.Position = UDim2.new(0, 0, 0, 105)
 SliderBg.BackgroundColor3 = colors.PanelBg
 SliderBg.Parent = RightPanel
 Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(1, 0)
@@ -304,55 +246,41 @@ SliderFill.Parent = SliderBg
 Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
 
 local SliderBtn = Instance.new("TextButton")
-SliderBtn.Size = UDim2.new(1, 0, 1, 20)
-SliderBtn.Position = UDim2.new(0, 0, 0, -10)
+SliderBtn.Size = UDim2.new(1, 0, 1, 16)
+SliderBtn.Position = UDim2.new(0, 0, 0, -8)
 SliderBtn.BackgroundTransparency = 1
 SliderBtn.Text = ""
 SliderBtn.Parent = SliderBg
 
-local MinText = Instance.new("TextLabel")
-MinText.Size = UDim2.new(0, 20, 0, 20)
-MinText.Position = UDim2.new(0, 0, 0, 245)
-MinText.BackgroundTransparency = 1; MinText.Text = "5"
-MinText.TextColor3 = colors.TextDim; MinText.Font = Enum.Font.Gotham; MinText.TextSize = 12
-MinText.TextXAlignment = Enum.TextXAlignment.Left; MinText.Parent = RightPanel
-
-local MaxText = Instance.new("TextLabel")
-MaxText.Size = UDim2.new(0, 30, 0, 20)
-MaxText.Position = UDim2.new(1, -30, 0, 245)
-MaxText.BackgroundTransparency = 1; MaxText.Text = "100"
-MaxText.TextColor3 = colors.TextDim; MaxText.Font = Enum.Font.Gotham; MaxText.TextSize = 12
-MaxText.TextXAlignment = Enum.TextXAlignment.Right; MaxText.Parent = RightPanel
-
--- Hàm tạo Toggle Switch mượt mà
-local function createToggle(title, yPos)
+-- Tạo Toggle Nhỏ gọn (Fly & Noclip)
+local function createMobileToggle(title, yPos)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 30)
+    frame.Size = UDim2.new(1, 0, 0, 24)
     frame.Position = UDim2.new(0, 0, 0, yPos)
     frame.BackgroundTransparency = 1
     frame.Parent = RightPanel
     
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -50, 1, 0)
+    lbl.Size = UDim2.new(1, -40, 1, 0)
     lbl.BackgroundTransparency = 1
     lbl.Text = title
     lbl.TextColor3 = colors.Text
     lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 13
+    lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = frame
     
     local toggleBg = Instance.new("TextButton")
-    toggleBg.Size = UDim2.new(0, 44, 0, 24)
-    toggleBg.Position = UDim2.new(1, -44, 0.5, -12)
+    toggleBg.Size = UDim2.new(0, 36, 0, 20)
+    toggleBg.Position = UDim2.new(1, -36, 0.5, -10)
     toggleBg.BackgroundColor3 = colors.PanelBg
     toggleBg.Text = ""
     toggleBg.Parent = frame
     Instance.new("UICorner", toggleBg).CornerRadius = UDim.new(1, 0)
     
     local circle = Instance.new("Frame")
-    circle.Size = UDim2.new(0, 18, 0, 18)
-    circle.Position = UDim2.new(0, 3, 0.5, -9)
+    circle.Size = UDim2.new(0, 14, 0, 14)
+    circle.Position = UDim2.new(0, 3, 0.5, -7)
     circle.BackgroundColor3 = colors.TextDim
     circle.Parent = toggleBg
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
@@ -361,7 +289,7 @@ local function createToggle(title, yPos)
     local function setToggle(state)
         isOn = state
         TweenService:Create(circle, TweenInfo.new(0.2), {
-            Position = isOn and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9),
+            Position = isOn and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
             BackgroundColor3 = isOn and colors.Text or colors.TextDim
         }):Play()
         TweenService:Create(toggleBg, TweenInfo.new(0.2), {
@@ -372,237 +300,126 @@ local function createToggle(title, yPos)
     return toggleBg, function() return isOn end, setToggle
 end
 
-local FlyToggleBtn, getFlyState, setFlyState = createToggle("✈ Fly (Bay)", 270)
-local NoclipToggleBtn, getNoclipState, setNoclipState = createToggle("🏃 Noclip (Xuyên tường)", 305)
+local FlyToggleBtn, getFlyState, setFlyState = createMobileToggle("Fly (Bay)", 120)
+local NoclipToggleBtn, getNoclipState, setNoclipState = createMobileToggle("Noclip (Xuyên)", 148)
 
-local InfoBox = Instance.new("TextLabel")
-InfoBox.Size = UDim2.new(1, 0, 0, 40)
-InfoBox.Position = UDim2.new(0, 0, 0, 345)
-InfoBox.BackgroundColor3 = colors.PanelBg
-InfoBox.Text = "ℹ Khi Follow: Script sẽ tự động dùng Fly/Noclip để đi đến và bám theo mục tiêu bằng mọi giá."
-InfoBox.TextColor3 = colors.TextDim
-InfoBox.Font = Enum.Font.Gotham
-InfoBox.TextSize = 11
-InfoBox.TextWrapped = true
-InfoBox.Parent = RightPanel
-Instance.new("UICorner", InfoBox).CornerRadius = UDim.new(0, 6)
-
--- [ NOTIFICATION SYSTEM ]
+-- [ NOTIFICATION SYSTEM MỎNG GỌN ]
 local NotifContainer = Instance.new("Frame")
-NotifContainer.Size = UDim2.new(0, 260, 1, -20)
-NotifContainer.Position = UDim2.new(1, -280, 0, 20)
+NotifContainer.Size = UDim2.new(0, 220, 1, -10)
+NotifContainer.Position = UDim2.new(1, -230, 0, 10)
 NotifContainer.BackgroundTransparency = 1
 NotifContainer.Parent = ScreenGui
 
 local NotifLayout = Instance.new("UIListLayout")
 NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
 NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NotifLayout.Padding = UDim.new(0, 10)
+NotifLayout.Padding = UDim.new(0, 6)
 NotifLayout.Parent = NotifContainer
 
 local function Notify(title, desc, color)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 65)
+    frame.Size = UDim2.new(1, 0, 0, 45)
     frame.BackgroundColor3 = colors.Bg
     frame.BackgroundTransparency = 1
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", frame).Color = Color3.fromRGB(40, 40, 45)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 5)
+    Instance.new("UIStroke", frame).Color = Color3.fromRGB(50, 50, 55)
     
     local line = Instance.new("Frame")
-    line.Size = UDim2.new(0, 4, 1, 0)
+    line.Size = UDim2.new(0, 3, 1, 0)
     line.BackgroundColor3 = color
     line.Parent = frame
-    Instance.new("UICorner", line).CornerRadius = UDim.new(0, 6)
-    
-    local icon = Instance.new("TextLabel")
-    icon.Size = UDim2.new(0, 30, 0, 30)
-    icon.Position = UDim2.new(0, 15, 0, 17)
-    icon.BackgroundColor3 = colors.ElementBg
-    icon.Text = "IY"
-    icon.TextColor3 = colors.Text
-    icon.Font = Enum.Font.GothamBold
-    icon.TextSize = 14
-    icon.Parent = frame
-    Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
+    Instance.new("UICorner", line).CornerRadius = UDim.new(0, 5)
     
     local tLabel = Instance.new("TextLabel")
-    tLabel.Size = UDim2.new(1, -85, 0, 20)
-    tLabel.Position = UDim2.new(0, 55, 0, 10)
+    tLabel.Size = UDim2.new(1, -25, 0, 18)
+    tLabel.Position = UDim2.new(0, 10, 0, 4)
     tLabel.BackgroundTransparency = 1
     tLabel.Text = title
     tLabel.TextColor3 = color
     tLabel.Font = Enum.Font.GothamBold
-    tLabel.TextSize = 14
+    tLabel.TextSize = 11
     tLabel.TextXAlignment = Enum.TextXAlignment.Left
     tLabel.Parent = frame
     
     local dLabel = Instance.new("TextLabel")
-    dLabel.Size = UDim2.new(1, -65, 0, 20)
-    dLabel.Position = UDim2.new(0, 55, 0, 30)
+    dLabel.Size = UDim2.new(1, -25, 0, 16)
+    dLabel.Position = UDim2.new(0, 10, 0, 22)
     dLabel.BackgroundTransparency = 1
     dLabel.Text = desc
     dLabel.TextColor3 = colors.TextDim
     dLabel.Font = Enum.Font.Gotham
-    dLabel.TextSize = 12
+    dLabel.TextSize = 9
     dLabel.TextXAlignment = Enum.TextXAlignment.Left
-    dLabel.TextTruncate = Enum.TextTruncate.AtEnd
     dLabel.Parent = frame
 
-    local xBtn = Instance.new("TextButton")
-    xBtn.Size = UDim2.new(0, 20, 0, 20)
-    xBtn.Position = UDim2.new(1, -25, 0, 10)
-    xBtn.BackgroundTransparency = 1
-    xBtn.Text = "X"
-    xBtn.TextColor3 = colors.TextDim
-    xBtn.Font = Enum.Font.Gotham
-    xBtn.TextSize = 14
-    xBtn.Parent = frame
-    
     frame.Parent = NotifContainer
-    TweenService:Create(frame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+    TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
     
-    local closed = false
-    local function closeNotif()
-        if closed then return end
-        closed = true
-        local fade = TweenService:Create(frame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-        TweenService:Create(tLabel, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-        TweenService:Create(dLabel, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-        TweenService:Create(icon, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
-        TweenService:Create(line, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
-        TweenService:Create(xBtn, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-        fade:Play()
-        fade.Completed:Wait()
+    task.spawn(function()
+        task.wait(3)
+        TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+        task.wait(0.2)
         frame:Destroy()
-    end
-
-    xBtn.MouseButton1Click:Connect(closeNotif)
-    task.spawn(function() task.wait(4); closeNotif() end)
+    end)
 end
 
 -- ==========================================
--- 4. CHỨC NĂNG LOGIC
+-- 4. LOGIC CHỌN PLAYER VÀ FOLLOW
 -- ==========================================
-
--- Cập nhật danh sách người chơi
 local playerButtons = {}
 
 local function updatePlayerList()
     for _, btn in pairs(playerButtons) do btn:Destroy() end
     table.clear(playerButtons)
     
-    local players = Players:GetPlayers()
-    ServerInfo.Text = "Online: " .. #players .. " | Max: " .. Players.MaxPlayers
-    
-    for _, player in ipairs(players) do
+    for _, player in ipairs(Players:GetPlayers()) do
         if player == LocalPlayer then continue end
         
+        -- Dùng TextButton toàn diện để dễ bấm trên điện thoại
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 45)
+        btn.Size = UDim2.new(1, 0, 0, 32)
         btn.BackgroundColor3 = colors.ElementBg
-        btn.Text = ""
+        btn.AutoButtonColor = true
+        btn.Text = "  " .. player.DisplayName
+        btn.TextColor3 = colors.Text
+        btn.Font = Enum.Font.GothamMedium
+        btn.TextSize = 11
+        btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.Parent = ScrollFrame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
         
-        -- Get Avatar
-        local avatarImg = Instance.new("ImageLabel")
-        avatarImg.Size = UDim2.new(0, 35, 0, 35)
-        avatarImg.Position = UDim2.new(0, 5, 0, 5)
-        avatarImg.BackgroundColor3 = colors.Bg
-        avatarImg.Parent = btn
-        Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
-        
-        task.spawn(function()
-            local thumbType = Enum.ThumbnailType.HeadShot
-            local thumbSize = Enum.ThumbnailSize.Size150x150
-            local content, isReady = Players:GetUserThumbnailAsync(player.UserId, thumbType, thumbSize)
-            if isReady then avatarImg.Image = content end
-        end)
-        
-        local dName = Instance.new("TextLabel")
-        dName.Size = UDim2.new(1, -50, 0, 20)
-        dName.Position = UDim2.new(0, 50, 0, 5)
-        dName.BackgroundTransparency = 1
-        dName.Text = player.DisplayName
-        dName.TextColor3 = colors.Text
-        dName.Font = Enum.Font.GothamBold
-        dName.TextSize = 13
-        dName.TextXAlignment = Enum.TextXAlignment.Left
-        dName.Parent = btn
-        
-        local uName = Instance.new("TextLabel")
-        uName.Size = UDim2.new(1, -50, 0, 15)
-        uName.Position = UDim2.new(0, 50, 0, 25)
-        uName.BackgroundTransparency = 1
-        uName.Text = "@" .. player.Name
-        uName.TextColor3 = colors.TextDim
-        uName.Font = Enum.Font.Gotham
-        uName.TextSize = 11
-        uName.TextXAlignment = Enum.TextXAlignment.Left
-        uName.Parent = btn
-
+        -- Xử lý sự kiện click chuẩn xác trên di động
         btn.MouseButton1Click:Connect(function()
             for _, b in pairs(playerButtons) do
                 b.BackgroundColor3 = colors.ElementBg
-                b:FindFirstChild("UIStroke"):Destroy()
             end
             
-            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-            local stroke = Instance.new("UIStroke", btn)
-            stroke.Color = colors.Accent
-            stroke.Thickness = 1
-            
+            btn.BackgroundColor3 = colors.Accent
             targetPlayer = player
-            TargetDisplay.Text = player.DisplayName
-            TargetUser.Text = "@" .. player.Name
-            TargetAvatar.Image = avatarImg.Image
-            TargetDisplay.TextColor3 = colors.Accent
+            SelectedTitle.Text = "SELECTED: " .. player.DisplayName
+            Notify("Đã chọn", player.DisplayName, colors.Accent)
         end)
         
         table.insert(playerButtons, btn)
     end
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 5)
 end
 
 Players.PlayerAdded:Connect(updatePlayerList)
 Players.PlayerRemoving:Connect(function(player)
     if targetPlayer == player then
         targetPlayer = nil
-        TargetDisplay.Text = "None"
-        TargetUser.Text = "@none"
-        TargetAvatar.Image = ""
+        SelectedTitle.Text = "SELECTED: NONE"
         if isFollowing then
-            StopBtn:Fire()
-            Notify("Target Left Server", "Mục tiêu đã rời server.", colors.Red)
+            isFollowing = false
+            Notify("Mục tiêu rời đi", "Đã dừng follow.", colors.Red)
         end
     end
     updatePlayerList()
-    Notify("Player Left", player.DisplayName .. " đã rời khỏi server.", Color3.fromRGB(59, 130, 246))
 end)
 updatePlayerList()
 
--- [ HỆ THỐNG NOCLIP & FLY ]
-local function updateNoclip()
-    if isNoclipEnabled then
-        if not noclipConnection then
-            noclipConnection = RunService.Stepped:Connect(function()
-                if LocalPlayer.Character then
-                    for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                        if part:IsA("BasePart") and part.CanCollide then
-                            part.CanCollide = false
-                        end
-                    end
-                end
-            end)
-        end
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
-end
-
+-- [ HỆ THỐNG FLY & NOCLIP ]
 local function cleanFlyMovers()
     if bodyVel then bodyVel:Destroy(); bodyVel = nil end
     if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
@@ -611,19 +428,10 @@ local function cleanFlyMovers()
     end
 end
 
--- [ LOGIC THEO DÕI (HEARTBEAT) ]
 local function stopFollowing()
     isFollowing = false
-    StatusLabel.Text = "STATUS: NOT FOLLOWING"
-    StatusLabel.TextColor3 = colors.Red
-    
-    if followConnection then
-        followConnection:Disconnect()
-        followConnection = nil
-    end
-    
+    if followConnection then followConnection:Disconnect(); followConnection = nil end
     cleanFlyMovers()
-    
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = 16 
         LocalPlayer.Character.Humanoid:MoveTo(LocalPlayer.Character.HumanoidRootPart.Position)
@@ -632,23 +440,19 @@ end
 
 StartBtn.MouseButton1Click:Connect(function()
     if not targetPlayer then
-        Notify("Please select a player.", "Vui lòng chọn người chơi.", colors.Accent)
+        Notify("Chưa chọn", "Vui lòng chọn người chơi!", colors.Red)
         return
     end
     if isFollowing then return end
     
     isFollowing = true
-    StatusLabel.Text = "STATUS: FOLLOWING"
-    StatusLabel.TextColor3 = colors.Green
-    Notify("Follow Started", "Đang theo dõi " .. targetPlayer.DisplayName .. "!", colors.Green)
+    Notify("Bắt đầu", "Đang bám theo " .. targetPlayer.DisplayName, colors.Green)
     
     followConnection = RunService.Heartbeat:Connect(function()
         if not isFollowing then return end
-        
-        -- Xác minh đối tượng
         if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
             stopFollowing()
-            Notify("Target Reset", "Mục tiêu đã reset hoặc biến mất.", colors.Red)
+            Notify("Mục tiêu mất", "Mục tiêu đã reset/rời game.", colors.Red)
             return
         end
         
@@ -659,30 +463,22 @@ StartBtn.MouseButton1Click:Connect(function()
         local myHRP = myChar.HumanoidRootPart
         local distance = (targetHRP.Position - myHRP.Position).Magnitude
         
-        -- Xử lý Fly (Bay)
         if isFlyEnabled then
             if not bodyVel or not bodyVel.Parent then
-                bodyVel = Instance.new("BodyVelocity")
+                bodyVel = Instance.new("BodyVelocity", myHRP)
                 bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                bodyVel.Parent = myHRP
-                
-                bodyGyro = Instance.new("BodyGyro")
+                bodyGyro = Instance.new("BodyGyro", myHRP)
                 bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
                 bodyGyro.D = 500
-                bodyGyro.Parent = myHRP
-                
                 myChar.Humanoid.PlatformStand = true
             end
-            
             if distance > 3 then
-                local direction = (targetHRP.Position - myHRP.Position).Unit
-                bodyVel.Velocity = direction * followSpeed
+                bodyVel.Velocity = (targetHRP.Position - myHRP.Position).Unit * followSpeed
                 bodyGyro.CFrame = CFrame.new(myHRP.Position, targetHRP.Position)
             else
                 bodyVel.Velocity = Vector3.zero
             end
         else
-            -- Đi bộ bình thường
             cleanFlyMovers()
             if distance > 3 then
                 myChar.Humanoid.WalkSpeed = followSpeed
@@ -695,13 +491,10 @@ StartBtn.MouseButton1Click:Connect(function()
 end)
 
 StopBtn.MouseButton1Click:Connect(function()
-    if isFollowing then
-        stopFollowing()
-        Notify("Follow Stopped", "Đã dừng theo dõi.", colors.Red)
-    end
+    stopFollowing()
+    Notify("Đã dừng", "Đã dừng theo dõi mục tiêu.", colors.Red)
 end)
 
--- [ CÁC SỰ KIỆN TƯƠNG TÁC KHÁC ]
 FlyToggleBtn.MouseButton1Click:Connect(function()
     isFlyEnabled = not isFlyEnabled
     setFlyState(isFlyEnabled)
@@ -711,10 +504,20 @@ end)
 NoclipToggleBtn.MouseButton1Click:Connect(function()
     isNoclipEnabled = not isNoclipEnabled
     setNoclipState(isNoclipEnabled)
-    updateNoclip()
+    if isNoclipEnabled then
+        noclipConnection = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if p:IsA("BasePart") then p.CanCollide = false end
+                end
+            end
+        end)
+    else
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+    end
 end)
 
--- Xử lý thanh trượt tốc độ
+-- Slider logic cho mobile
 local draggingSlider = false
 SliderBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingSlider = true end
@@ -728,11 +531,11 @@ UserInputService.InputChanged:Connect(function(input)
         local percentage = relativeX / SliderBg.AbsoluteSize.X
         SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
         followSpeed = math.floor(5 + (95 * percentage))
-        SpeedTitle.Text = "FOLLOW SPEED: " .. followSpeed
+        SpeedTitle.Text = "SPEED: " .. followSpeed
     end
 end)
 
--- Ẩn / Hiện Menu
+-- Đóng / Mở menu
 local menuOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
     menuOpen = not menuOpen; MainFrame.Visible = menuOpen
@@ -740,13 +543,4 @@ end)
 CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; menuOpen = false end)
 MinimizeBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; menuOpen = false end)
 
--- Xử lý khi LocalPlayer respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    if isFollowing then
-        stopFollowing()
-        Notify("Reconnected", "Bạn vừa hồi sinh, đã tạm dừng script.", Color3.fromRGB(59, 130, 246))
-    end
-    updateNoclip()
-end)
-
-Notify("Reconnected", "Đã tải lại danh sách người chơi và GUI thành công.", colors.Green)
+Notify("Thành công", "Đã tải giao diện Mobile tối ưu!", colors.Green)
