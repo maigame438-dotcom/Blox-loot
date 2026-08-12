@@ -1,1046 +1,1906 @@
 -- ============================================================
--- AUTO CLICKER PRO MOBILE V4.0 - FULL FIX + RESPONSIVE
--- Tác giả: HBG (Huy Báo Game)
+-- AUTO CLICKER PRO MOBILE V5.0
+-- FULL MOBILE FIX
 -- ============================================================
 
--- ================================
--- XÓA GUI CŨ & RESET TRẠNG THÁI
--- ================================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local camera = workspace.CurrentCamera
 
-local existingGui = player.PlayerGui:FindFirstChild("AutoClickerGUI")
-if existingGui then existingGui:Destroy() end
+-- ============================================================
+-- XÓA GUI CŨ
+-- ============================================================
 
--- ================================
--- BIẾN TOÀN CỤC
--- ================================
+local oldGui = playerGui:FindFirstChild("AutoClickerGUI")
+
+if oldGui then
+    oldGui:Destroy()
+end
+
+-- ============================================================
+-- TRẠNG THÁI
+-- ============================================================
+
 local isRunning = false
 local isAutoClickOn = false
+
 local currentCPS = 10
 local currentInterval = 0.10
+
 local clickCount = 0
-local clickPosition = nil          -- {X, Y}
+
+local clickPosition = nil
 local isPositionSet = false
+local isSettingPosition = false
+
 local targetMode = "SINGLE"
+
 local menuVisible = true
 local isMinimized = false
-local isSettingPosition = false
-local loopThread = nil
-local markerObject = nil           -- để xóa marker khi reset
 
--- ================================
--- HÀM TIỆN ÍCH
--- ================================
+local loopThread = nil
+local markerObject = nil
+
+-- ============================================================
+-- FORWARD DECLARATION
+-- QUAN TRỌNG: FIX LỖI UPDATE UI
+-- ============================================================
+
+local mainFrame
+local contentScroller
+local titleBar
+
+local statusLabel
+local toggleBtn
+local cpsDisplay
+local cpsValueBtn
+local intervalBtn
+local toolLabel
+local posLabel
+local clickCountLabel
+
+local singleBtn
+local multiBtn
+
+local sliderTrack
+local sliderThumb
+
+local floatBtn
+
+local updateUI
+local closeMenu
+local showMenu
+
+-- ============================================================
+-- HELPER
+-- ============================================================
+
 local function create(className, props)
+
     local obj = Instance.new(className)
-    for k, v in pairs(props) do
-        obj[k] = v
+
+    for key, value in pairs(props) do
+        obj[key] = value
     end
+
     return obj
 end
 
-local function getCurrentTool()
-    local char = player.Character
-    if not char then return nil end
-    return char:FindFirstChildWhichIsA("Tool")
+local function round(n)
+    return math.floor(n + 0.5)
 end
 
 local function formatNumber(num)
-    if num >= 1000 then
-        return string.format("%.1fK", num/1000)
+
+    if num >= 1000000 then
+        return string.format("%.1fM", num / 1000000)
+
+    elseif num >= 1000 then
+        return string.format("%.1fK", num / 1000)
+
     end
+
     return tostring(num)
 end
 
--- ================================
--- AUTO CLICK LOOP (GIỮ LOGIC CŨ)
--- ================================
-local function autoClickLoop()
-    while isRunning do
-        if isAutoClickOn then
-            local tool = getCurrentTool()
-            if tool then
-                pcall(function()
-                    tool:Activate()
-                    clickCount = clickCount + 1
-                    if clickCountLabel then
-                        clickCountLabel.Text = formatNumber(clickCount)
-                    end
-                end)
-            else
-                -- Không có tool: cập nhật status
-                if statusLabel then
-                    statusLabel.Text = "● WAITING FOR TOOL"
-                    statusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
-                end
-            end
-            local delay = (currentInterval and currentInterval > 0) and currentInterval or (1 / currentCPS)
-            if delay < 0.02 then delay = 0.02 end
-            task.wait(delay)
-        else
-            task.wait(0.1)
-        end
+local function getCurrentTool()
+
+    local character = player.Character
+
+    if not character then
+        return nil
     end
+
+    return character:FindFirstChildWhichIsA("Tool")
 end
 
--- ================================
--- HÀM START / STOP / TOGGLE
--- ================================
-local function startAutoClick()
-    if isRunning then return end
-    isRunning = true
-    isAutoClickOn = true
-    if loopThread then
-        task.cancel(loopThread)
-        loopThread = nil
-    end
-    loopThread = task.spawn(autoClickLoop)
-    updateUI()
-end
+-- ============================================================
+-- GUI
+-- ============================================================
 
-local function stopAutoClick()
-    isRunning = false
-    isAutoClickOn = false
-    if loopThread then
-        task.cancel(loopThread)
-        loopThread = nil
-    end
-    updateUI()
-end
-
-local function toggleAutoClick()
-    if isRunning then
-        stopAutoClick()
-    else
-        startAutoClick()
-    end
-end
-
--- ================================
--- CẬP NHẬT UI
--- ================================
-local function updateUI()
-    -- Status
-    if statusLabel then
-        if isRunning and isAutoClickOn then
-            statusLabel.Text = "● RUNNING"
-            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-        else
-            statusLabel.Text = "● STOPPED"
-            statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
-    end
-    -- Toggle ON/OFF
-    if toggleBtn then
-        toggleBtn.Text = isAutoClickOn and "ON" or "OFF"
-        toggleBtn.BackgroundColor3 = isAutoClickOn and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(80, 80, 100)
-    end
-    -- CPS
-    if cpsDisplay then
-        cpsDisplay.Text = "CPS: " .. currentCPS
-    end
-    if cpsValueBtn then
-        cpsValueBtn.Text = tostring(currentCPS)
-    end
-    -- Interval
-    if intervalLabel then
-        intervalLabel.Text = string.format("%.2fs", currentInterval)
-    end
-    -- Tool
-    if toolLabel then
-        local tool = getCurrentTool()
-        toolLabel.Text = "⚔ " .. (tool and tool.Name or "None")
-    end
-    -- Click count
-    if clickCountLabel then
-        clickCountLabel.Text = formatNumber(clickCount)
-    end
-    -- Position
-    if posLabel then
-        if isPositionSet and clickPosition then
-            posLabel.Text = "X: " .. math.floor(clickPosition.X) .. " Y: " .. math.floor(clickPosition.Y)
-        else
-            posLabel.Text = "X: Not Set  Y: Not Set"
-        end
-    end
-    -- Target mode
-    if singleBtn and multiBtn then
-        if targetMode == "SINGLE" then
-            singleBtn.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
-            multiBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-            singleBtn.TextColor3 = Color3.fromRGB(255,255,255)
-            multiBtn.TextColor3 = Color3.fromRGB(200,200,200)
-        else
-            multiBtn.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
-            singleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-            multiBtn.TextColor3 = Color3.fromRGB(255,255,255)
-            singleBtn.TextColor3 = Color3.fromRGB(200,200,200)
-        end
-    end
-end
-
--- ================================
--- XỬ LÝ ĐÓNG / MỞ MENU
--- ================================
-local function closeMenu()
-    menuVisible = false
-    mainFrame.Visible = false
-    if floatBtn then floatBtn.Visible = true end
-end
-
-local function showMenu()
-    menuVisible = true
-    mainFrame.Visible = true
-    if floatBtn then floatBtn.Visible = false end
-    updateUI()
-end
-
--- ================================
--- TẠO GIAO DIỆN (RESPONSIVE)
--- ================================
 local screenGui = create("ScreenGui", {
     Name = "AutoClickerGUI",
-    Parent = player.PlayerGui,
-    ResetOnSpawn = false
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    Parent = playerGui
 })
 
--- Lấy kích thước màn hình
-local viewport = workspace.CurrentCamera.ViewportSize
-local isLandscape = viewport.X > viewport.Y
+-- ============================================================
+-- RESPONSIVE SIZE
+-- ============================================================
 
--- Tính kích thước menu dựa trên tỷ lệ màn hình
-local menuWidth = isLandscape and math.min(viewport.X * 0.35, 350) or math.min(viewport.X * 0.85, 320)
-local menuHeight = isLandscape and math.min(viewport.Y * 0.8, 400) or math.min(viewport.Y * 0.7, 420)
+local function getMenuSize()
 
--- Đảm bảo menu không vượt quá 80% chiều cao màn hình
-menuHeight = math.min(menuHeight, viewport.Y * 0.8)
+    local viewport = camera.ViewportSize
 
--- ---- FRAME CHÍNH ----
-local mainFrame = create("Frame", {
-    Size = UDim2.new(0, menuWidth, 0, menuHeight),
-    Position = UDim2.new(0.5, -menuWidth/2, 0.5, -menuHeight/2),
-    BackgroundColor3 = Color3.fromRGB(18, 18, 28),
-    BackgroundTransparency = 0.08,
-    BorderSizePixel = 1,
-    BorderColor3 = Color3.fromRGB(80, 120, 200),
+    local landscape = viewport.X > viewport.Y
+
+    if landscape then
+
+        local width = math.min(310, viewport.X * 0.42)
+        local height = math.min(370, viewport.Y * 0.78)
+
+        return width, height
+
+    else
+
+        local width = math.min(310, viewport.X * 0.78)
+        local height = math.min(440, viewport.Y * 0.68)
+
+        return width, height
+
+    end
+end
+
+local menuWidth, menuHeight = getMenuSize()
+
+-- ============================================================
+-- MAIN FRAME
+-- ============================================================
+
+mainFrame = create("Frame", {
+
+    Size = UDim2.fromOffset(menuWidth, menuHeight),
+
+    Position = UDim2.new(
+        0.5,
+        -menuWidth / 2,
+        0.5,
+        -menuHeight / 2
+    ),
+
+    BackgroundColor3 = Color3.fromRGB(18,18,28),
+
+    BackgroundTransparency = 0.05,
+
+    BorderSizePixel = 0,
+
     Active = true,
-    Draggable = true,
-    Visible = true,
+
     Parent = screenGui
 })
-create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = mainFrame})
-create("UIStroke", {Color = Color3.fromRGB(80, 120, 200), Thickness = 1, Parent = mainFrame})
 
--- ---- HEADER ----
-local titleBar = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 32),
-    Position = UDim2.new(0, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(30, 30, 50),
-    BackgroundTransparency = 0.2,
-    BorderSizePixel = 0,
+create("UICorner", {
+    CornerRadius = UDim.new(0,12),
     Parent = mainFrame
 })
-create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = titleBar})
+
+create("UIStroke", {
+    Color = Color3.fromRGB(80,120,200),
+    Thickness = 1,
+    Parent = mainFrame
+})
+
+-- ============================================================
+-- HEADER
+-- ============================================================
+
+titleBar = create("Frame", {
+
+    Size = UDim2.new(1,0,0,38),
+
+    BackgroundColor3 = Color3.fromRGB(30,30,50),
+
+    BorderSizePixel = 0,
+
+    Active = true,
+
+    Parent = mainFrame
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,12),
+    Parent = titleBar
+})
 
 local titleLabel = create("TextLabel", {
-    Size = UDim2.new(0.6, 0, 1, 0),
-    Position = UDim2.new(0.05, 0, 0, 0),
+
+    Size = UDim2.new(1,-80,1,0),
+
+    Position = UDim2.new(0,10,0,0),
+
     BackgroundTransparency = 1,
+
     Text = "AUTO CLICKER",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     Parent = titleBar
 })
 
--- Nút minimize (dấu -)
+-- ============================================================
+-- MINIMIZE
+-- ============================================================
+
 local minBtn = create("TextButton", {
-    Size = UDim2.new(0, 24, 0, 24),
-    Position = UDim2.new(1, -56, 0.5, -12),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
+
+    Size = UDim2.fromOffset(28,28),
+
+    Position = UDim2.new(1,-64,0.5,-14),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,80),
+
     Text = "−",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
+
     Parent = titleBar
 })
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = minBtn})
 
--- Nút đóng (X)
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = minBtn
+})
+
+-- ============================================================
+-- CLOSE
+-- ============================================================
+
 local closeBtn = create("TextButton", {
-    Size = UDim2.new(0, 24, 0, 24),
-    Position = UDim2.new(1, -28, 0.5, -12),
-    BackgroundColor3 = Color3.fromRGB(200, 40, 40),
-    Text = "✕",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
+
+    Size = UDim2.fromOffset(28,28),
+
+    Position = UDim2.new(1,-32,0.5,-14),
+
+    BackgroundColor3 = Color3.fromRGB(200,45,45),
+
+    Text = "×",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
+
     Parent = titleBar
 })
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = closeBtn})
 
--- ---- SCROLLING FRAME CHO NỘI DUNG ----
-local contentScroller = create("ScrollingFrame", {
-    Size = UDim2.new(1, -12, 1, -42),
-    Position = UDim2.new(0, 6, 0, 36),
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = closeBtn
+})
+
+-- ============================================================
+-- SCROLL
+-- ============================================================
+
+contentScroller = create("ScrollingFrame", {
+
+    Size = UDim2.new(1,-12,1,-44),
+
+    Position = UDim2.new(0,6,0,42),
+
     BackgroundTransparency = 1,
+
     BorderSizePixel = 0,
-    ScrollBarThickness = 2,
-    CanvasSize = UDim2.new(0, 0, 0, 420),
+
+    ScrollBarThickness = 3,
+
+    ScrollBarImageTransparency = 0.3,
+
+    CanvasSize = UDim2.fromOffset(0,470),
+
     Parent = mainFrame
 })
 
 local content = create("Frame", {
-    Size = UDim2.new(1, 0, 1, 0),
+
+    Size = UDim2.new(1,-4,0,470),
+
     BackgroundTransparency = 1,
+
     Parent = contentScroller
 })
 
--- ---- STATUS ----
-local statusLabel = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0, 2),
+-- ============================================================
+-- STATUS
+-- ============================================================
+
+statusLabel = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,24),
+
+    Position = UDim2.fromOffset(0,2),
+
     BackgroundTransparency = 1,
+
     Text = "● STOPPED",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
     TextScaled = true,
+
     Font = Enum.Font.Gotham,
+
     Parent = content
 })
 
--- ---- AUTO CLICK TOGGLE ----
-local toggleFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 28),
-    Position = UDim2.new(0, 0, 0, 26),
-    BackgroundTransparency = 1,
-    Parent = content
-})
+-- ============================================================
+-- AUTO CLICK TOGGLE
+-- ============================================================
+
 local toggleLabel = create("TextLabel", {
-    Size = UDim2.new(0.6, 0, 1, 0),
-    Position = UDim2.new(0, 0, 0, 0),
+
+    Size = UDim2.new(0.55,0,0,32),
+
+    Position = UDim2.new(0,5,0,32),
+
     BackgroundTransparency = 1,
+
     Text = "AUTO CLICK",
-    TextColor3 = Color3.fromRGB(220, 220, 220),
+
+    TextColor3 = Color3.fromRGB(225,225,225),
+
     TextScaled = true,
+
     Font = Enum.Font.Gotham,
-    Parent = toggleFrame
+
+    Parent = content
 })
-local toggleBtn = create("TextButton", {
-    Size = UDim2.new(0, 70, 0, 24),
-    Position = UDim2.new(0.7, 0, 0.5, -12),
-    BackgroundColor3 = Color3.fromRGB(80, 80, 100),
+
+toggleBtn = create("TextButton", {
+
+    Size = UDim2.fromOffset(76,30),
+
+    Position = UDim2.new(1,-82,0,33),
+
+    BackgroundColor3 = Color3.fromRGB(70,70,90),
+
     Text = "OFF",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = toggleFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = toggleBtn})
 
--- ---- SPEED ----
-local speedLabel = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 60),
-    BackgroundTransparency = 1,
-    Text = "SPEED",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
+    Parent = content
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,8),
+    Parent = toggleBtn
+})
+
+-- ============================================================
+-- SPEED TITLE
+-- ============================================================
+
+local speedTitle = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,70),
+
+    BackgroundTransparency = 1,
+
+    Text = "CLICK SPEED",
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
+    TextScaled = true,
+
     Font = Enum.Font.Gotham,
+
     Parent = content
 })
 
-local cpsDisplay = create("TextLabel", {
-    Size = UDim2.new(0.4, 0, 0, 20),
-    Position = UDim2.new(0.05, 0, 0, 80),
+-- ============================================================
+-- CPS DISPLAY
+-- ============================================================
+
+cpsDisplay = create("TextLabel", {
+
+    Size = UDim2.new(0.4,0,0,24),
+
+    Position = UDim2.new(0.3,0,0,92),
+
     BackgroundTransparency = 1,
+
     Text = "CPS: 10",
-    TextColor3 = Color3.fromRGB(255, 220, 100),
+
+    TextColor3 = Color3.fromRGB(255,220,100),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     Parent = content
 })
 
--- Nút − và + CPS
+-- ============================================================
+-- CPS BUTTONS
+-- ============================================================
+
 local cpsMinus = create("TextButton", {
-    Size = UDim2.new(0, 28, 0, 28),
-    Position = UDim2.new(0.5, -38, 0, 80),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
-    Text = "−",
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = content
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = cpsMinus})
 
-local cpsValueBtn = create("TextButton", {
-    Size = UDim2.new(0, 36, 0, 28),
-    Position = UDim2.new(0.5, -18, 0, 80),
-    BackgroundColor3 = Color3.fromRGB(40, 40, 60),
-    Text = "10",
+    Size = UDim2.fromOffset(30,30),
+
+    Position = UDim2.new(0.5,-70,0,90),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,80),
+
+    Text = "−",
+
     TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
+
     Parent = content
 })
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = cpsValueBtn})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = cpsMinus
+})
+
+cpsValueBtn = create("TextButton", {
+
+    Size = UDim2.fromOffset(40,30),
+
+    Position = UDim2.new(0.5,-20,0,90),
+
+    BackgroundColor3 = Color3.fromRGB(40,40,60),
+
+    Text = "10",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
+    TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
+    Parent = content
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = cpsValueBtn
+})
 
 local cpsPlus = create("TextButton", {
-    Size = UDim2.new(0, 28, 0, 28),
-    Position = UDim2.new(0.5, 10, 0, 80),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
+
+    Size = UDim2.fromOffset(30,30),
+
+    Position = UDim2.new(0.5,40,0,90),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,80),
+
     Text = "+",
+
     TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
+
     Parent = content
 })
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = cpsPlus})
 
--- Slider CPS
-local sliderTrack = create("Frame", {
-    Size = UDim2.new(0.7, 0, 0, 6),
-    Position = UDim2.new(0.15, 0, 0, 114),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = cpsPlus
+})
+
+-- ============================================================
+-- SLIDER
+-- ============================================================
+
+sliderTrack = create("Frame", {
+
+    Size = UDim2.new(0.76,0,0,7),
+
+    Position = UDim2.new(0.12,0,0,127),
+
+    BackgroundColor3 = Color3.fromRGB(65,65,85),
+
     BorderSizePixel = 0,
+
+    Active = true,
+
     Parent = content
 })
-create("UICorner", {CornerRadius = UDim.new(0, 3), Parent = sliderTrack})
 
-local sliderThumb = create("TextButton", {
-    Size = UDim2.new(0, 16, 0, 16),
-    Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8),
-    BackgroundColor3 = Color3.fromRGB(100, 180, 255),
-    BorderSizePixel = 0,
-    Text = "",
+create("UICorner", {
+    CornerRadius = UDim.new(0,4),
     Parent = sliderTrack
 })
-create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = sliderThumb})
 
--- ---- INTERVAL ----
+sliderThumb = create("Frame", {
+
+    Size = UDim2.fromOffset(20,20),
+
+    Position = UDim2.new(
+        (currentCPS-1)/19,
+        -10,
+        0.5,
+        -10
+    ),
+
+    BackgroundColor3 = Color3.fromRGB(100,180,255),
+
+    BorderSizePixel = 0,
+
+    Active = false,
+
+    Parent = sliderTrack
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,10),
+    Parent = sliderThumb
+})
+
+-- ============================================================
+-- INTERVAL
+-- ============================================================
+
 local intervalTitle = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 126),
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,145),
+
     BackgroundTransparency = 1,
+
     Text = "INTERVAL",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
-    TextScaled = true,
-    Font = Enum.Font.Gotham,
-    Parent = content
-})
 
-local intervalBtn = create("TextButton", {
-    Size = UDim2.new(0.4, 0, 0, 24),
-    Position = UDim2.new(0.3, 0, 0, 146),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 100),
-    Text = "0.10s",
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = content
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = intervalBtn})
-local intervalLabel = intervalBtn
-
--- ---- TARGET MODE ----
-local targetTitle = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 176),
-    BackgroundTransparency = 1,
-    Text = "TARGET",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
-    TextScaled = true,
-    Font = Enum.Font.Gotham,
-    Parent = content
-})
-
-local targetFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 28),
-    Position = UDim2.new(0, 0, 0, 196),
-    BackgroundTransparency = 1,
-    Parent = content
-})
-
-local singleBtn = create("TextButton", {
-    Size = UDim2.new(0.3, 0, 1, 0),
-    Position = UDim2.new(0.05, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(100, 180, 255),
-    Text = "SINGLE",
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = targetFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = singleBtn})
-
-local multiBtn = create("TextButton", {
-    Size = UDim2.new(0.3, 0, 1, 0),
-    Position = UDim2.new(0.6, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
-    Text = "MULTI",
     TextColor3 = Color3.fromRGB(200,200,200),
+
     TextScaled = true,
+
+    Font = Enum.Font.Gotham,
+
+    Parent = content
+})
+
+intervalBtn = create("TextButton", {
+
+    Size = UDim2.fromOffset(90,28),
+
+    Position = UDim2.new(0.5,-45,0,168),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,100),
+
+    Text = "0.10s",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
+    TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
-    Parent = targetFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = multiBtn})
 
--- ---- TOOL ----
-local toolTitle = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 230),
-    BackgroundTransparency = 1,
-    Text = "TOOL",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
-    TextScaled = true,
-    Font = Enum.Font.Gotham,
     Parent = content
 })
 
-local toolLabel = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0, 250),
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = intervalBtn
+})
+
+-- ============================================================
+-- TARGET
+-- ============================================================
+
+local targetTitle = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,202),
+
     BackgroundTransparency = 1,
-    Text = "⚔ None",
-    TextColor3 = Color3.fromRGB(255, 220, 100),
+
+    Text = "TARGET",
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
     TextScaled = true,
+
+    Font = Enum.Font.Gotham,
+
+    Parent = content
+})
+
+singleBtn = create("TextButton", {
+
+    Size = UDim2.new(0.38,0,0,32),
+
+    Position = UDim2.new(0.08,0,0,226),
+
+    BackgroundColor3 = Color3.fromRGB(100,180,255),
+
+    Text = "SINGLE",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
+    TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
     Parent = content
 })
 
--- ---- CLICK POSITION ----
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = singleBtn
+})
+
+multiBtn = create("TextButton", {
+
+    Size = UDim2.new(0.38,0,0,32),
+
+    Position = UDim2.new(0.54,0,0,226),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,80),
+
+    Text = "MULTI",
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
+    TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
+    Parent = content
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = multiBtn
+})
+
+-- ============================================================
+-- TOOL
+-- ============================================================
+
+local toolTitle = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,264),
+
+    BackgroundTransparency = 1,
+
+    Text = "TOOL",
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
+    TextScaled = true,
+
+    Font = Enum.Font.Gotham,
+
+    Parent = content
+})
+
+toolLabel = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,25),
+
+    Position = UDim2.fromOffset(0,286),
+
+    BackgroundTransparency = 1,
+
+    Text = "⚔ None",
+
+    TextColor3 = Color3.fromRGB(255,220,100),
+
+    TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
+    Parent = content
+})
+
+-- ============================================================
+-- POSITION
+-- ============================================================
+
 local posTitle = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 276),
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,316),
+
     BackgroundTransparency = 1,
+
     Text = "CLICK POSITION",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
     TextScaled = true,
+
     Font = Enum.Font.Gotham,
+
     Parent = content
 })
 
-local posLabel = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 296),
+posLabel = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,22),
+
+    Position = UDim2.fromOffset(0,338),
+
     BackgroundTransparency = 1,
-    Text = "X: Not Set  Y: Not Set",
-    TextColor3 = Color3.fromRGB(150, 150, 200),
+
+    Text = "X: Not Set   Y: Not Set",
+
+    TextColor3 = Color3.fromRGB(150,180,220),
+
     TextScaled = true,
+
     Font = Enum.Font.Gotham,
+
     Parent = content
 })
 
-local posBtnFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 28),
-    Position = UDim2.new(0, 0, 0, 316),
-    BackgroundTransparency = 1,
-    Parent = content
-})
+-- ============================================================
+-- POSITION BUTTONS
+-- ============================================================
 
 local setPosBtn = create("TextButton", {
-    Size = UDim2.new(0.28, 0, 1, 0),
-    Position = UDim2.new(0, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 100),
+
+    Size = UDim2.new(0.29,0,0,30),
+
+    Position = UDim2.new(0.03,0,0,365),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,100),
+
     Text = "SET",
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = posBtnFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = setPosBtn})
 
-local testPosBtn = create("TextButton", {
-    Size = UDim2.new(0.28, 0, 1, 0),
-    Position = UDim2.new(0.34, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 100),
-    Text = "TEST",
     TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = posBtnFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = testPosBtn})
 
-local resetPosBtn = create("TextButton", {
-    Size = UDim2.new(0.28, 0, 1, 0),
-    Position = UDim2.new(0.68, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 100),
-    Text = "RESET",
-    TextColor3 = Color3.fromRGB(255,255,255),
     TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = posBtnFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = resetPosBtn})
 
--- ---- CLICKS ----
-local clickTitle = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 350),
-    BackgroundTransparency = 1,
-    Text = "CLICKS",
-    TextColor3 = Color3.fromRGB(200, 200, 200),
-    TextScaled = true,
-    Font = Enum.Font.Gotham,
+    Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
     Parent = content
 })
 
-local clickCountLabel = create("TextLabel", {
-    Size = UDim2.new(0.6, 0, 0, 22),
-    Position = UDim2.new(0, 0, 0, 370),
-    BackgroundTransparency = 1,
-    Text = "0",
-    TextColor3 = Color3.fromRGB(255, 220, 100),
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = setPosBtn
+})
+
+local testPosBtn = create("TextButton", {
+
+    Size = UDim2.new(0.29,0,0,30),
+
+    Position = UDim2.new(0.355,0,0,365),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,100),
+
+    Text = "TEST",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
+    Parent = content
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = testPosBtn
+})
+
+local resetPosBtn = create("TextButton", {
+
+    Size = UDim2.new(0.29,0,0,30),
+
+    Position = UDim2.new(0.68,0,0,365),
+
+    BackgroundColor3 = Color3.fromRGB(80,60,80),
+
+    Text = "RESET",
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
+    TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 0,
+
+    Parent = content
+})
+
+create("UICorner", {
+    CornerRadius = UDim.new(0,7),
+    Parent = resetPosBtn
+})
+
+-- ============================================================
+-- CLICKS
+-- ============================================================
+
+local clickTitle = create("TextLabel", {
+
+    Size = UDim2.new(1,0,0,20),
+
+    Position = UDim2.fromOffset(0,402),
+
+    BackgroundTransparency = 1,
+
+    Text = "CLICKS",
+
+    TextColor3 = Color3.fromRGB(200,200,200),
+
+    TextScaled = true,
+
+    Font = Enum.Font.Gotham,
+
+    Parent = content
+})
+
+clickCountLabel = create("TextLabel", {
+
+    Size = UDim2.new(0.5,0,0,25),
+
+    Position = UDim2.new(0.05,0,0,425),
+
+    BackgroundTransparency = 1,
+
+    Text = "0",
+
+    TextColor3 = Color3.fromRGB(255,220,100),
+
+    TextScaled = true,
+
+    Font = Enum.Font.GothamBold,
+
     Parent = content
 })
 
 local resetCountBtn = create("TextButton", {
-    Size = UDim2.new(0.28, 0, 0, 20),
-    Position = UDim2.new(0.68, 0, 0, 370),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
+
+    Size = UDim2.new(0.28,0,0,25),
+
+    Position = UDim2.new(0.67,0,0,425),
+
+    BackgroundColor3 = Color3.fromRGB(60,60,80),
+
     Text = "RESET",
+
     TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
-    Font = Enum.Font.Gotham,
+
+    Font = Enum.Font.GothamBold,
+
     BorderSizePixel = 0,
+
     Parent = content
 })
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = resetCountBtn})
 
--- Cập nhật CanvasSize cho ScrollingFrame
-contentScroller.CanvasSize = UDim2.new(0, 0, 0, 410)
+create("UICorner", {
+    CornerRadius = UDim.new(0,6),
+    Parent = resetCountBtn
+})
 
--- ---- NÚT NỔI AC ----
-local floatBtn = create("TextButton", {
-    Size = UDim2.new(0, 44, 0, 44),
-    Position = UDim2.new(1, -56, 0.5, -22),
-    BackgroundColor3 = Color3.fromRGB(30, 30, 50),
-    BackgroundTransparency = 0.1,
-    BorderSizePixel = 2,
-    BorderColor3 = Color3.fromRGB(80, 120, 200),
+contentScroller.CanvasSize = UDim2.fromOffset(0,465)
+
+-- ============================================================
+-- FLOAT BUTTON
+-- ============================================================
+
+floatBtn = create("TextButton", {
+
+    Size = UDim2.fromOffset(50,50),
+
+    Position = UDim2.new(1,-65,0.5,-25),
+
+    BackgroundColor3 = Color3.fromRGB(30,30,50),
+
     Text = "AC",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
+
+    TextColor3 = Color3.fromRGB(255,255,255),
+
     TextScaled = true,
+
     Font = Enum.Font.GothamBold,
+
+    BorderSizePixel = 2,
+
+    BorderColor3 = Color3.fromRGB(80,120,200),
+
     Visible = false,
+
+    Active = true,
+
     Parent = screenGui
 })
-create("UICorner", {CornerRadius = UDim.new(0, 22), Parent = floatBtn})
 
--- ================================
--- XỬ LÝ KÉO THẢ (TOUCH)
--- ================================
-local dragData = {dragging = false, object = nil, offset = nil}
+create("UICorner", {
+    CornerRadius = UDim.new(0,25),
+    Parent = floatBtn
+})
 
-local function startDrag(obj, input)
-    if not obj then return end
-    dragData.dragging = true
-    dragData.object = obj
-    local absPos = obj.AbsolutePosition
-    dragData.offset = Vector2.new(input.Position.X - absPos.X, input.Position.Y - absPos.Y)
+-- ============================================================
+-- UPDATE UI
+-- ============================================================
+
+updateUI = function()
+
+    if isRunning and isAutoClickOn then
+
+        statusLabel.Text = "● RUNNING"
+        statusLabel.TextColor3 = Color3.fromRGB(0,255,100)
+
+    else
+
+        statusLabel.Text = "● STOPPED"
+        statusLabel.TextColor3 = Color3.fromRGB(200,200,200)
+
+    end
+
+    if toggleBtn then
+
+        if isAutoClickOn then
+
+            toggleBtn.Text = "ON"
+            toggleBtn.BackgroundColor3 =
+                Color3.fromRGB(0,200,80)
+
+        else
+
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 =
+                Color3.fromRGB(70,70,90)
+
+        end
+
+    end
+
+    cpsDisplay.Text = "CPS: " .. tostring(currentCPS)
+
+    cpsValueBtn.Text = tostring(currentCPS)
+
+    intervalBtn.Text =
+        string.format("%.2fs", currentInterval)
+
+    local tool = getCurrentTool()
+
+    if tool then
+        toolLabel.Text = "⚔ " .. tool.Name
+    else
+        toolLabel.Text = "⚔ None"
+    end
+
+    clickCountLabel.Text =
+        formatNumber(clickCount)
+
+    if isPositionSet and clickPosition then
+
+        posLabel.Text =
+            "✓ X: "
+            .. math.floor(clickPosition.X)
+            .. "   Y: "
+            .. math.floor(clickPosition.Y)
+
+        posLabel.TextColor3 =
+            Color3.fromRGB(80,255,130)
+
+    else
+
+        posLabel.Text =
+            "X: Not Set   Y: Not Set"
+
+        posLabel.TextColor3 =
+            Color3.fromRGB(150,180,220)
+
+    end
+
+    if targetMode == "SINGLE" then
+
+        singleBtn.BackgroundColor3 =
+            Color3.fromRGB(100,180,255)
+
+        multiBtn.BackgroundColor3 =
+            Color3.fromRGB(60,60,80)
+
+    else
+
+        singleBtn.BackgroundColor3 =
+            Color3.fromRGB(60,60,80)
+
+        multiBtn.BackgroundColor3 =
+            Color3.fromRGB(100,180,255)
+
+    end
+
 end
 
-local function updateDrag(input)
-    if not dragData.dragging or not dragData.object then return end
-    local newX = input.Position.X - dragData.offset.X
-    local newY = input.Position.Y - dragData.offset.Y
-    local maxX = workspace.CurrentCamera.ViewportSize.X - dragData.object.AbsoluteSize.X
-    local maxY = workspace.CurrentCamera.ViewportSize.Y - dragData.object.AbsoluteSize.Y
-    newX = math.clamp(newX, 0, maxX)
-    newY = math.clamp(newY, 0, maxY)
-    dragData.object.Position = UDim2.new(0, newX, 0, newY)
+-- ============================================================
+-- START / STOP
+-- ============================================================
+
+local function autoClickLoop()
+
+    while isRunning do
+
+        if isAutoClickOn then
+
+            local tool = getCurrentTool()
+
+            if tool then
+
+                pcall(function()
+
+                    tool:Activate()
+
+                    clickCount += 1
+
+                    if clickCountLabel then
+                        clickCountLabel.Text =
+                            formatNumber(clickCount)
+                    end
+
+                end)
+
+            end
+
+            task.wait(math.max(currentInterval,0.02))
+
+        else
+
+            task.wait(0.1)
+
+        end
+
+    end
+
 end
 
-local function endDrag()
-    dragData.dragging = false
-    dragData.object = nil
-end
+local function startAutoClick()
 
--- Gắn sự kiện kéo cho title bar và nút AC
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        startDrag(mainFrame, input)
-    end
-end)
-floatBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        startDrag(floatBtn, input)
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        updateDrag(input)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        endDrag()
-    end
-end)
-
--- ================================
--- XỬ LÝ SLIDER CPS (TOUCH)
--- ================================
-local sliderDragging = false
-sliderThumb.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        sliderDragging = true
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if sliderDragging and input.UserInputType == Enum.UserInputType.Touch then
-        local trackPos = sliderTrack.AbsolutePosition.X
-        local trackSize = sliderTrack.AbsoluteSize.X
-        local touchX = input.Position.X
-        local percent = math.clamp((touchX - trackPos) / trackSize, 0, 1)
-        local newCPS = math.floor(1 + percent * 19)
-        newCPS = math.clamp(newCPS, 1, 20)
-        if newCPS ~= currentCPS then
-            currentCPS = newCPS
-            sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-            currentInterval = 1 / currentCPS
-            updateUI()
-        end
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        sliderDragging = false
-    end
-end)
-
--- ================================
--- XỬ LÝ SỰ KIỆN NÚT (TOUCH + CLICK)
--- ================================
-
--- Đóng menu
-closeBtn.MouseButton1Click:Connect(closeMenu)
-closeBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        closeMenu()
-    end
-end)
-
--- Mở menu từ AC
-floatBtn.MouseButton1Click:Connect(showMenu)
-floatBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        showMenu()
-    end
-end)
-
--- Toggle AUTO CLICK
-toggleBtn.MouseButton1Click:Connect(toggleAutoClick)
-toggleBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        toggleAutoClick()
-    end
-end)
-
--- CPS − và +
-cpsMinus.MouseButton1Click:Connect(function()
-    if currentCPS > 1 then
-        currentCPS = currentCPS - 1
-        sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-        currentInterval = 1 / currentCPS
-        updateUI()
-    end
-end)
-cpsMinus.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if currentCPS > 1 then
-            currentCPS = currentCPS - 1
-            sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-            currentInterval = 1 / currentCPS
-            updateUI()
-        end
-    end
-end)
-
-cpsPlus.MouseButton1Click:Connect(function()
-    if currentCPS < 20 then
-        currentCPS = currentCPS + 1
-        sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-        currentInterval = 1 / currentCPS
-        updateUI()
-    end
-end)
-cpsPlus.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if currentCPS < 20 then
-            currentCPS = currentCPS + 1
-            sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-            currentInterval = 1 / currentCPS
-            updateUI()
-        end
-    end
-end)
-
--- INTERVAL (xoay vòng các giá trị)
-local intervalOptions = {0.05, 0.10, 0.20, 0.50, 1.00, 2.00}
-local intervalIndex = 2
-intervalBtn.MouseButton1Click:Connect(function()
-    intervalIndex = (intervalIndex % #intervalOptions) + 1
-    currentInterval = intervalOptions[intervalIndex]
-    currentCPS = math.floor(1 / currentInterval)
-    if currentCPS > 20 then currentCPS = 20 end
-    if currentCPS < 1 then currentCPS = 1 end
-    sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-    updateUI()
-end)
-intervalBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        intervalIndex = (intervalIndex % #intervalOptions) + 1
-        currentInterval = intervalOptions[intervalIndex]
-        currentCPS = math.floor(1 / currentInterval)
-        if currentCPS > 20 then currentCPS = 20 end
-        if currentCPS < 1 then currentCPS = 1 end
-        sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-        updateUI()
-    end
-end)
-
--- TARGET MODE
-singleBtn.MouseButton1Click:Connect(function()
-    targetMode = "SINGLE"
-    updateUI()
-end)
-singleBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        targetMode = "SINGLE"
-        updateUI()
-    end
-end)
-
-multiBtn.MouseButton1Click:Connect(function()
-    targetMode = "MULTI"
-    updateUI()
-end)
-multiBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        targetMode = "MULTI"
-        updateUI()
-    end
-end)
-
--- RESET COUNT
-resetCountBtn.MouseButton1Click:Connect(function()
-    clickCount = 0
-    if clickCountLabel then
-        clickCountLabel.Text = "0"
-    end
-end)
-resetCountBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        clickCount = 0
-        if clickCountLabel then
-            clickCountLabel.Text = "0"
-        end
-    end
-end)
-
--- ================================
--- SET POSITION (TOUCH)
--- ================================
-local function removeMarker()
-    if markerObject then
-        markerObject:Destroy()
-        markerObject = nil
-    end
-end
-
-local function createMarker(x, y, color)
-    removeMarker()
-    markerObject = create("Frame", {
-        Size = UDim2.new(0, 50, 0, 50),
-        Position = UDim2.new(0, x - 25, 0, y - 25),
-        BackgroundColor3 = color or Color3.fromRGB(255, 200, 0),
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 2,
-        BorderColor3 = Color3.fromRGB(255, 255, 255),
-        Visible = true,
-        Parent = screenGui
-    })
-    create("UICorner", {CornerRadius = UDim.new(0, 25), Parent = markerObject})
-    local label = create("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 20),
-        Position = UDim2.new(0, 0, 0.5, -10),
-        BackgroundTransparency = 1,
-        Text = "CLICK",
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextScaled = true,
-        Font = Enum.Font.GothamBold,
-        Parent = markerObject
-    })
-end
-
-setPosBtn.MouseButton1Click:Connect(function()
-    if isSettingPosition then return end
-    isSettingPosition = true
-    mainFrame.Visible = false
-    -- Tạo overlay
-    local overlay = create("Frame", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.5,
-        BorderSizePixel = 0,
-        Visible = true,
-        Parent = screenGui
-    })
-    local instruction = create("TextLabel", {
-        Size = UDim2.new(0.8, 0, 0, 40),
-        Position = UDim2.new(0.1, 0, 0.4, 0),
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.6,
-        Text = "CHẠM VÀO VỊ TRÍ MUỐN CLICK",
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextScaled = true,
-        Font = Enum.Font.GothamBold,
-        BorderSizePixel = 1,
-        BorderColor3 = Color3.fromRGB(255, 255, 255),
-        Parent = overlay
-    })
-    create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = instruction})
-
-    local connection
-    connection = UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local pos = input.Position
-            clickPosition = {X = pos.X, Y = pos.Y}
-            isPositionSet = true
-            overlay:Destroy()
-            connection:Disconnect()
-            isSettingPosition = false
-            mainFrame.Visible = true
-            createMarker(pos.X, pos.Y, Color3.fromRGB(0, 255, 0))
-            updateUI()
-        end
-    end)
-end)
-setPosBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        setPosBtn.MouseButton1Click:Fire()
-    end
-end)
-
--- TEST CLICK
-testPosBtn.MouseButton1Click:Connect(function()
-    if not isPositionSet or not clickPosition then
-        -- Thông báo
-        local note = create("TextLabel", {
-            Size = UDim2.new(0, 200, 0, 30),
-            Position = UDim2.new(0.5, -100, 0.5, -15),
-            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-            BackgroundTransparency = 0.5,
-            Text = "POSITION NOT SET",
-            TextColor3 = Color3.fromRGB(255, 0, 0),
-            TextScaled = true,
-            Font = Enum.Font.GothamBold,
-            Parent = screenGui
-        })
-        create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = note})
-        task.delay(1, function() note:Destroy() end)
+    if isRunning then
         return
     end
-    local tool = getCurrentTool()
-    if tool then
-        pcall(function() tool:Activate() end)
-        createMarker(clickPosition.X, clickPosition.Y, Color3.fromRGB(0, 255, 0))
-        task.delay(0.8, function() removeMarker() end)
+
+    isRunning = true
+    isAutoClickOn = true
+
+    if loopThread then
+        task.cancel(loopThread)
+    end
+
+    loopThread =
+        task.spawn(autoClickLoop)
+
+    updateUI()
+
+end
+
+local function stopAutoClick()
+
+    isRunning = false
+    isAutoClickOn = false
+
+    if loopThread then
+
+        task.cancel(loopThread)
+
+        loopThread = nil
+
+    end
+
+    updateUI()
+
+end
+
+local function toggleAutoClick()
+
+    if isAutoClickOn then
+        stopAutoClick()
     else
-        createMarker(clickPosition.X, clickPosition.Y, Color3.fromRGB(255, 200, 0))
-        task.delay(0.8, function() removeMarker() end)
+        startAutoClick()
     end
-end)
-testPosBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        testPosBtn.MouseButton1Click:Fire()
-    end
+
+end
+
+-- ============================================================
+-- MENU OPEN / CLOSE
+-- ============================================================
+
+closeMenu = function()
+
+    menuVisible = false
+
+    mainFrame.Visible = false
+
+    floatBtn.Visible = true
+
+end
+
+showMenu = function()
+
+    menuVisible = true
+
+    mainFrame.Visible = true
+
+    floatBtn.Visible = false
+
+    updateUI()
+
+end
+
+-- ============================================================
+-- BUTTON EVENTS
+-- DÙNG ACTIVATED DUY NHẤT
+-- ============================================================
+
+toggleBtn.Activated:Connect(function()
+
+    toggleAutoClick()
+
 end)
 
--- RESET POSITION
-resetPosBtn.MouseButton1Click:Connect(function()
-    clickPosition = nil
-    isPositionSet = false
+closeBtn.Activated:Connect(function()
+
+    closeMenu()
+
+end)
+
+floatBtn.Activated:Connect(function()
+
+    showMenu()
+
+end)
+
+-- ============================================================
+-- MINIMIZE
+-- ============================================================
+
+minBtn.Activated:Connect(function()
+
+    isMinimized = not isMinimized
+
+    contentScroller.Visible = not isMinimized
+
+    if isMinimized then
+
+        minBtn.Text = "+"
+
+        mainFrame.Size =
+            UDim2.fromOffset(menuWidth,42)
+
+    else
+
+        minBtn.Text = "−"
+
+        mainFrame.Size =
+            UDim2.fromOffset(menuWidth,menuHeight)
+
+    end
+
+end)
+
+-- ============================================================
+-- CPS -
+-- ============================================================
+
+cpsMinus.Activated:Connect(function()
+
+    currentCPS =
+        math.clamp(currentCPS - 1,1,20)
+
+    currentInterval =
+        1 / currentCPS
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- CPS +
+-- ============================================================
+
+cpsPlus.Activated:Connect(function()
+
+    currentCPS =
+        math.clamp(currentCPS + 1,1,20)
+
+    currentInterval =
+        1 / currentCPS
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- CPS VALUE
+-- ============================================================
+
+cpsValueBtn.Activated:Connect(function()
+
+    currentCPS += 1
+
+    if currentCPS > 20 then
+        currentCPS = 1
+    end
+
+    currentInterval =
+        1 / currentCPS
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- SLIDER
+-- ============================================================
+
+local sliderDragging = false
+
+local function setCPSFromX(x)
+
+    local trackX =
+        sliderTrack.AbsolutePosition.X
+
+    local trackWidth =
+        sliderTrack.AbsoluteSize.X
+
+    local percent =
+        math.clamp(
+            (x - trackX) / trackWidth,
+            0,
+            1
+        )
+
+    currentCPS =
+        math.clamp(
+            round(1 + percent * 19),
+            1,
+            20
+        )
+
+    currentInterval =
+        1 / currentCPS
+
+    sliderThumb.Position =
+        UDim2.new(
+            (currentCPS - 1) / 19,
+            -10,
+            0.5,
+            -10
+        )
+
+    updateUI()
+
+end
+
+sliderTrack.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        sliderDragging = true
+
+        setCPSFromX(
+            input.Position.X
+        )
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if sliderDragging
+        and input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        setCPSFromX(
+            input.Position.X
+        )
+
+    end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        sliderDragging = false
+
+    end
+
+end)
+
+-- ============================================================
+-- INTERVAL
+-- ============================================================
+
+local intervalOptions = {
+    0.05,
+    0.10,
+    0.20,
+    0.50,
+    1.00,
+    2.00
+}
+
+local intervalIndex = 2
+
+intervalBtn.Activated:Connect(function()
+
+    intervalIndex += 1
+
+    if intervalIndex > #intervalOptions then
+        intervalIndex = 1
+    end
+
+    currentInterval =
+        intervalOptions[intervalIndex]
+
+    currentCPS =
+        math.clamp(
+            round(1 / currentInterval),
+            1,
+            20
+        )
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- TARGET
+-- ============================================================
+
+singleBtn.Activated:Connect(function()
+
+    targetMode = "SINGLE"
+
+    updateUI()
+
+end)
+
+multiBtn.Activated:Connect(function()
+
+    targetMode = "MULTI"
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- RESET COUNT
+-- ============================================================
+
+resetCountBtn.Activated:Connect(function()
+
+    clickCount = 0
+
+    updateUI()
+
+end)
+
+-- ============================================================
+-- MARKER
+-- ============================================================
+
+local function removeMarker()
+
+    if markerObject then
+
+        markerObject:Destroy()
+
+        markerObject = nil
+
+    end
+
+end
+
+local function createMarker(x,y)
+
     removeMarker()
-    updateUI()
-end)
-resetPosBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        resetPosBtn.MouseButton1Click:Fire()
+
+    markerObject = create("Frame", {
+
+        Size = UDim2.fromOffset(52,52),
+
+        Position =
+            UDim2.fromOffset(
+                x - 26,
+                y - 26
+            ),
+
+        BackgroundColor3 =
+            Color3.fromRGB(0,255,100),
+
+        BackgroundTransparency = 0.25,
+
+        BorderSizePixel = 2,
+
+        BorderColor3 =
+            Color3.fromRGB(255,255,255),
+
+        Active = false,
+
+        Parent = screenGui
+
+    })
+
+    create("UICorner", {
+        CornerRadius = UDim.new(0,26),
+        Parent = markerObject
+    })
+
+    create("TextLabel", {
+
+        Size = UDim2.fromScale(1,1),
+
+        BackgroundTransparency = 1,
+
+        Text = "●",
+
+        TextColor3 =
+            Color3.fromRGB(255,255,255),
+
+        TextScaled = true,
+
+        Font = Enum.Font.GothamBold,
+
+        Parent = markerObject
+
+    })
+
+end
+
+-- ============================================================
+-- SET POSITION
+-- ============================================================
+
+local function beginSetPosition()
+
+    if isSettingPosition then
+        return
     end
+
+    isSettingPosition = true
+
+    mainFrame.Visible = false
+
+    local overlay = create("Frame", {
+
+        Size = UDim2.fromScale(1,1),
+
+        BackgroundColor3 =
+            Color3.fromRGB(0,0,0),
+
+        BackgroundTransparency = 0.45,
+
+        BorderSizePixel = 0,
+
+        Active = true,
+
+        Parent = screenGui
+
+    })
+
+    local instruction = create("TextLabel", {
+
+        Size = UDim2.new(0.8,0,0,55),
+
+        Position =
+            UDim2.new(0.1,0,0.42,0),
+
+        BackgroundColor3 =
+            Color3.fromRGB(20,20,30),
+
+        BackgroundTransparency = 0.1,
+
+        Text =
+            "CHẠM VÀO VỊ TRÍ MUỐN CLICK",
+
+        TextColor3 =
+            Color3.fromRGB(255,255,255),
+
+        TextScaled = true,
+
+        Font = Enum.Font.GothamBold,
+
+        BorderSizePixel = 1,
+
+        BorderColor3 =
+            Color3.fromRGB(100,180,255),
+
+        Parent = overlay
+
+    })
+
+    create("UICorner", {
+        CornerRadius = UDim.new(0,10),
+        Parent = instruction
+    })
+
+    local connection
+
+    connection =
+        UserInputService.InputBegan:Connect(function(input)
+
+            if input.UserInputType ~=
+                Enum.UserInputType.Touch then
+
+                return
+
+            end
+
+            local pos =
+                input.Position
+
+            clickPosition = {
+                X = pos.X,
+                Y = pos.Y
+            }
+
+            isPositionSet = true
+            isSettingPosition = false
+
+            connection:Disconnect()
+
+            overlay:Destroy()
+
+            createMarker(
+                pos.X,
+                pos.Y
+            )
+
+            mainFrame.Visible = true
+
+            updateUI()
+
+        end)
+
+end
+
+setPosBtn.Activated:Connect(
+    beginSetPosition
+)
+
+-- ============================================================
+-- TEST
+-- ============================================================
+
+testPosBtn.Activated:Connect(function()
+
+    if not isPositionSet
+        or not clickPosition then
+
+        return
+
+    end
+
+    createMarker(
+        clickPosition.X,
+        clickPosition.Y
+    )
+
+    local tool =
+        getCurrentTool()
+
+    if tool then
+
+        pcall(function()
+            tool:Activate()
+        end)
+
+    end
+
 end)
 
--- ================================
--- CẬP NHẬT TOOL
--- ================================
-local function onCharacterAdded(char)
+-- ============================================================
+-- RESET POSITION
+-- ============================================================
+
+resetPosBtn.Activated:Connect(function()
+
+    clickPosition = nil
+
+    isPositionSet = false
+
+    removeMarker()
+
     updateUI()
-    char.ChildAdded:Connect(function(child)
+
+end)
+
+-- ============================================================
+-- DRAG MENU MOBILE
+-- ============================================================
+
+local dragging = false
+local dragStart
+local startPosition
+
+titleBar.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        dragging = true
+
+        dragStart =
+            input.Position
+
+        startPosition =
+            mainFrame.Position
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not dragging then
+        return
+    end
+
+    if input.UserInputType ~=
+        Enum.UserInputType.Touch then
+
+        return
+    end
+
+    local delta =
+        input.Position - dragStart
+
+    local viewport =
+        camera.ViewportSize
+
+    local size =
+        mainFrame.AbsoluteSize
+
+    local x =
+        startPosition.X.Offset + delta.X
+
+    local y =
+        startPosition.Y.Offset + delta.Y
+
+    x = math.clamp(
+        x,
+        0,
+        viewport.X - size.X
+    )
+
+    y = math.clamp(
+        y,
+        0,
+        viewport.Y - size.Y
+    )
+
+    mainFrame.Position =
+        UDim2.fromOffset(x,y)
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        dragging = false
+
+    end
+
+end)
+
+-- ============================================================
+-- DRAG FLOAT BUTTON
+-- ============================================================
+
+local floatDragging = false
+local floatStart
+local floatPosition
+
+floatBtn.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        floatDragging = true
+
+        floatStart =
+            input.Position
+
+        floatPosition =
+            floatBtn.Position
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not floatDragging then
+        return
+    end
+
+    if input.UserInputType ~=
+        Enum.UserInputType.Touch then
+
+        return
+
+    end
+
+    local delta =
+        input.Position - floatStart
+
+    local viewport =
+        camera.ViewportSize
+
+    local size =
+        floatBtn.AbsoluteSize
+
+    local x =
+        floatPosition.X.Offset + delta.X
+
+    local y =
+        floatPosition.Y.Offset + delta.Y
+
+    x = math.clamp(
+        x,
+        0,
+        viewport.X - size.X
+    )
+
+    y = math.clamp(
+        y,
+        0,
+        viewport.Y - size.Y
+    )
+
+    floatBtn.Position =
+        UDim2.fromOffset(x,y)
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        floatDragging = false
+
+    end
+
+end)
+
+-- ============================================================
+-- CHARACTER / TOOL UPDATE
+-- ============================================================
+
+local function setupCharacter(character)
+
+    character.ChildAdded:Connect(function(child)
+
         if child:IsA("Tool") then
+
             updateUI()
+
         end
+
     end)
-    char.ChildRemoved:Connect(function(child)
+
+    character.ChildRemoved:Connect(function(child)
+
         if child:IsA("Tool") then
+
             updateUI()
+
         end
+
     end)
+
+    task.wait(0.2)
+
+    updateUI()
+
 end
 
 if player.Character then
-    onCharacterAdded(player.Character)
-end
-player.CharacterAdded:Connect(onCharacterAdded)
 
-player.CharacterAdded:Connect(function()
-    task.wait(0.2)
-    updateUI()
+    setupCharacter(
+        player.Character
+    )
+
+end
+
+player.CharacterAdded:Connect(
+    setupCharacter
+)
+
+-- ============================================================
+-- SCREEN ROTATION
+-- ============================================================
+
+camera:GetPropertyChangedSignal(
+    "ViewportSize"
+):Connect(function()
+
+    if isMinimized then
+        return
+    end
+
+    menuWidth,menuHeight =
+        getMenuSize()
+
+    mainFrame.Size =
+        UDim2.fromOffset(
+            menuWidth,
+            menuHeight
+        )
+
 end)
 
--- ================================
--- RESPONSIVE: CẬP NHẬT KHI XOAY MÀN HÌNH
--- ================================
-local function onViewportChanged()
-    local newViewport = workspace.CurrentCamera.ViewportSize
-    local isLandscapeNew = newViewport.X > newViewport.Y
-    local newWidth = isLandscapeNew and math.min(newViewport.X * 0.35, 350) or math.min(newViewport.X * 0.85, 320)
-    local newHeight = isLandscapeNew and math.min(newViewport.Y * 0.8, 400) or math.min(newViewport.Y * 0.7, 420)
-    newHeight = math.min(newHeight, newViewport.Y * 0.8)
-    mainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
-    mainFrame.Position = UDim2.new(0.5, -newWidth/2, 0.5, -newHeight/2)
-    -- Cập nhật CanvasSize nếu cần
-end
+-- ============================================================
+-- START
+-- ============================================================
 
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(onViewportChanged)
-
--- ================================
--- KHỞI TẠO UI
--- ================================
 updateUI()
-print("===== AUTO CLICKER PRO MOBILE V4.0 =====")
-print("✅ Đã sẵn sàng. Nút X đóng menu, AC mở lại.")
-print("🔘 Toggle AUTO CLICK để bật/tắt click.")
-print("📍 SET POSITION: chạm vào màn hình để chọn vị trí.")
-print("🔘 TEST: click thử một lần tại vị trí đã chọn.")
-print("📱 Menu responsive, hỗ trợ touch.")
-print("=========================================")
+
+print("================================")
+print("AUTO CLICKER PRO MOBILE V5.0")
+print("FULL MOBILE FIX")
+print("================================")
