@@ -1,5 +1,5 @@
 -- ============================================================
--- BLOX LOOT ESP V19.0 - MENU PRO + TỐI ƯU HIỆU SUẤT
+-- BLOX LOOT ESP V20.0 - FIX SCALE + TỐI ƯU
 -- Tác giả: HBG (Huy Báo Game)
 -- ============================================================
 
@@ -7,14 +7,13 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local espEnabled = false
 local espList = {}
 local updateConnections = {}
 
--- Cấu hình mặc định
+-- Cấu hình màu
 local nameColor = Color3.fromRGB(255, 255, 255)
 local hpColor = Color3.fromRGB(255, 255, 255)
 local distColor = Color3.fromRGB(255, 255, 255)
@@ -45,6 +44,10 @@ local function create(className, properties)
     return obj
 end
 
+local function round(num)
+    return math.floor(num + 0.5)
+end
+
 local function formatNumber(num)
     if num >= 1e15 then return string.format("%.2fQ", num / 1e15)
     elseif num >= 1e12 then return string.format("%.2fT", num / 1e12)
@@ -56,7 +59,7 @@ local function formatNumber(num)
 end
 
 -- ================================
--- TẠO GIAO DIỆN CHÍNH
+-- GIAO DIỆN CHÍNH
 -- ================================
 local screenGui = create("ScreenGui", {
     Name = "HBG_ESP_Menu_Pro",
@@ -77,12 +80,11 @@ local menuButton = create("TextButton", {
     Font = Enum.Font.SourceSansBold,
     Parent = screenGui
 })
--- Bo góc + viền
 create("UICorner", {CornerRadius = UDim.new(0, 10), Parent = menuButton})
 create("UIStroke", {Color = Color3.fromRGB(0, 180, 255), Thickness = 1.5, Parent = menuButton})
 
 -- ================================
--- MENU CHÍNH (THIẾT KẾ HIỆN ĐẠI)
+-- MENU CHÍNH
 -- ================================
 local mainFrame = create("Frame", {
     Size = UDim2.new(0, 360, 0, 460),
@@ -106,7 +108,6 @@ local titleBar = create("Frame", {
     Parent = mainFrame
 })
 create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = titleBar})
--- Che góc dưới của title bar
 local titleFill = create("Frame", {
     Size = UDim2.new(1, 0, 0, 18),
     Position = UDim2.new(0,0,0,18),
@@ -114,7 +115,6 @@ local titleFill = create("Frame", {
     BorderSizePixel = 0,
     Parent = titleBar
 })
-
 local titleLabel = create("TextLabel", {
     Size = UDim2.new(1, -40, 1, 0),
     Position = UDim2.new(0, 40, 0, 0),
@@ -126,7 +126,6 @@ local titleLabel = create("TextLabel", {
     Parent = titleBar
 })
 
--- Nút đóng (X)
 local closeBtn = create("TextButton", {
     Size = UDim2.new(0, 28, 0, 28),
     Position = UDim2.new(1, -34, 0, 4),
@@ -141,7 +140,7 @@ local closeBtn = create("TextButton", {
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = closeBtn})
 
 -- ================================
--- THANH SCALE + NÚT +/- (CẢI TIẾN)
+-- THANH SCALE (FIX)
 -- ================================
 local scaleFrame = create("Frame", {
     Size = UDim2.new(0.9, 0, 0, 32),
@@ -203,20 +202,21 @@ local sliderThumb = create("TextButton", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = sliderThumb})
 
--- Hàm cập nhật scale
+-- UIScale cho menu chính
 local mainScale = create("UIScale", {Scale = currentScale, Parent = mainFrame})
-local colorScale -- Sẽ tạo sau cho menu màu
+local colorScale = nil -- sẽ khởi tạo sau
 
+-- Hàm setScale (đã sửa lỗi round)
 local function setScale(newScale)
     currentScale = math.clamp(newScale, minScale, maxScale)
     mainScale.Scale = currentScale
     if colorScale then colorScale.Scale = currentScale end
-    scaleLabel.Text = "Size: " .. math.round(currentScale * 100) .. "%"
+    scaleLabel.Text = "Size: " .. round(currentScale * 100) .. "%"  -- dùng round tự định nghĩa
     local percent = (currentScale - minScale) / (maxScale - minScale)
     sliderThumb.Position = UDim2.new(percent, -8, -0.2, 0)
 end
 
--- Kéo slider
+-- Kéo slider (fix)
 local dragging = false
 sliderThumb.MouseButton1Down:Connect(function() dragging = true end)
 UserInputService.InputEnded:Connect(function(input)
@@ -327,7 +327,7 @@ local fpsToggle = createToggle(mainFrame, "📊 FPS Counter", perfY, false, func
     end
 end)
 
--- Render Distance (chọn nhanh)
+-- Render Distance
 local distLabel = create("TextLabel", {
     Size = UDim2.new(0.85, 0, 0, 18),
     Position = UDim2.new(0.075, 0, 0, perfY + spacing),
@@ -401,7 +401,7 @@ local colorBtn = create("TextButton", {
 create("UICorner", {CornerRadius = UDim.new(0,8), Parent = colorBtn})
 
 -- ================================
--- MENU MÀU SẮC (CẢI TIẾN GIAO DIỆN)
+-- MENU MÀU SẮC
 -- ================================
 local colorSubMenu = create("Frame", {
     Size = UDim2.new(0, 500, 0, 640),
@@ -518,7 +518,7 @@ function updateColorBorders()
     end
 end
 
--- Bảng màu nhóm (giữ nguyên hệ màu, cải tiến giao diện)
+-- Bảng màu nhóm
 local colorGroups = {
     {name = "PRIMARY", colors = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(0,255,0), Color3.fromRGB(255,0,255)}},
     {name = "COOL COLORS", colors = {Color3.fromRGB(0,150,255), Color3.fromRGB(0,255,200), Color3.fromRGB(0,200,255), Color3.fromRGB(150,100,255), Color3.fromRGB(200,150,255)}},
@@ -536,7 +536,6 @@ local function createColorPalette()
     local cols = 6
 
     for _, group in ipairs(colorGroups) do
-        -- Nhãn nhóm
         create("TextLabel", {
             Size = UDim2.new(1, 0, 0, 18),
             Position = UDim2.new(0, 0, 0, startY),
@@ -547,7 +546,7 @@ local function createColorPalette()
             Font = Enum.Font.SourceSansBold,
             Parent = colorSubMenu
         })
-        startY += 20
+        startY = startY + 20
 
         local totalWidth = cols * (cellSize + gap) - gap
         local startX = (colorSubMenu.Size.X.Offset - totalWidth) / 2
@@ -574,14 +573,14 @@ local function createColorPalette()
             end)
             table.insert(colorButtons, btn)
         end
-        startY += math.ceil(#group.colors / cols) * (cellSize + gap) + 10
+        startY = startY + math.ceil(#group.colors / cols) * (cellSize + gap) + 10
     end
     updateColorBorders()
 end
 
 createColorPalette()
 
--- Nút Rainbow + Reset (cuối menu)
+-- Nút Rainbow + Reset
 local rainbowBtn = create("TextButton", {
     Size = UDim2.new(0, 110, 0, 24),
     Position = UDim2.new(0.1, 0, 0, 605),
@@ -665,14 +664,14 @@ closeBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ================================
--- HỆ THỐNG ESP (ĐÃ TỐI ƯU)
+-- HỆ THỐNG ESP
 -- ================================
 local function startFPS()
     if fpsConnection then fpsConnection:Disconnect() end
     local count = 0
     local lastTime = tick()
     fpsConnection = RunService.Heartbeat:Connect(function()
-        count += 1
+        count = count + 1
         local now = tick()
         if now - lastTime >= 1 then
             local fps = count
@@ -788,7 +787,7 @@ local function createESPForPlayer(targetPlayer)
 end
 
 function enableESP()
-    disableESP() -- dọn dẹp trước
+    disableESP()
     for _, plr in ipairs(Players:GetPlayers()) do
         createESPForPlayer(plr)
     end
@@ -799,11 +798,11 @@ function disableESP()
     for _, d in ipairs(espList) do
         if d.billboard then d.billboard:Destroy() end
     end
-    table.clear(espList)
+    espList = {}  -- thay vì table.clear (không tương thích)
     for _, conn in ipairs(updateConnections) do
         conn:Disconnect()
     end
-    table.clear(updateConnections)
+    updateConnections = {}  -- thay vì table.clear
     print("[ESP] Đã tắt ESP")
 end
 
@@ -831,7 +830,7 @@ Players.PlayerRemoving:Connect(function(removedPlayer)
     end
 end)
 
--- Vòng cập nhật ESP liên tục bằng Heartbeat (tối ưu)
+-- Vòng lặp cập nhật ESP
 RunService.Heartbeat:Connect(function()
     if espEnabled then
         for _, d in ipairs(espList) do
@@ -843,6 +842,6 @@ end)
 -- ================================
 -- KHỞI ĐỘNG
 -- ================================
-print("[HBG] Blox Loot ESP V19.0 - Menu Pro đã tải!")
+print("[HBG] Blox Loot ESP V20.0 - Fix Scale đã tải!")
 print("⚡ Click nút ⚡ góc phải trên để mở menu.")
-print("🎨 Tùy chỉnh màu sắc, bật/tắt hiển thị, scale menu linh hoạt.")
+print("📐 Scale đã được sửa: bấm +/− hoặc kéo thanh trượt.")
