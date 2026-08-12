@@ -1,5 +1,5 @@
 -- ============================================================
--- BLOX LOOT ESP V24.0 - FIX ESP SAU KHI CHẾT
+-- BLOX LOOT ESP V26.0 - SCALE TỐI ƯU (40% MẶC ĐỊNH, MAX 70%)
 -- Tác giả: HBG (Huy Báo Game)
 -- ============================================================
 
@@ -11,7 +11,7 @@ local player = Players.LocalPlayer
 local espEnabled = false
 local espList = {}
 local updateConnections = {}
-local charAddedConnections = {}  -- Lưu kết nối CharacterAdded của từng player
+local charAddedConnections = {}
 
 -- Cấu hình màu
 local nameColor = Color3.fromRGB(255, 255, 255)
@@ -28,13 +28,12 @@ local fpsLabel = nil
 local fpsConnection = nil
 local renderDistance = 300
 
--- Font style
 local boldFont = true
 
--- Scale
-local currentScale = 0.3
+-- SCALE
+local currentScale = 0.4   -- mặc định 40%
 local minScale = 0.01
-local maxScale = 0.5
+local maxScale = 0.7       -- tối đa 70%
 
 -- ================================
 -- TIỆN ÍCH
@@ -45,10 +44,6 @@ local function create(className, properties)
         obj[k] = v
     end
     return obj
-end
-
-local function round(num)
-    return math.floor(num + 0.5)
 end
 
 local function formatNumber(num)
@@ -70,7 +65,6 @@ local screenGui = create("ScreenGui", {
     ResetOnSpawn = false
 })
 
--- Nút mở menu
 local menuButton = create("TextButton", {
     Size = UDim2.new(0, 44, 0, 44),
     Position = UDim2.new(1, -54, 0, 10),
@@ -103,7 +97,7 @@ local mainFrame = create("Frame", {
 create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = mainFrame})
 create("UIStroke", {Color = Color3.fromRGB(0, 200, 255), Thickness = 2, Parent = mainFrame})
 
-local mainScale = create("UIScale", {Scale = currentScale, Parent = mainFrame})
+local mainUIScale = create("UIScale", {Scale = currentScale, Parent = mainFrame})
 
 -- Tiêu đề
 local titleBar = create("Frame", {
@@ -145,7 +139,7 @@ local closeBtn = create("TextButton", {
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = closeBtn})
 
 -- ================================
--- THANH SCALE (FIX)
+-- THANH SCALE (CHỈ + / -)
 -- ================================
 local scaleFrame = create("Frame", {
     Size = UDim2.new(0.9, 0, 0, 32),
@@ -157,19 +151,10 @@ local scaleFrame = create("Frame", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = scaleFrame})
 
-local scaleLabel = create("TextLabel", {
-    Size = UDim2.new(0.3, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "Size: 30%",
-    TextColor3 = Color3.fromRGB(220, 220, 255),
-    TextScaled = true,
-    Font = Enum.Font.SourceSansBold,
-    Parent = scaleFrame
-})
-
+-- Nút -
 local minusBtn = create("TextButton", {
-    Size = UDim2.new(0, 24, 1, 0),
-    Position = UDim2.new(0.32, 0, 0, 0),
+    Size = UDim2.new(0, 30, 1, 0),
+    Position = UDim2.new(0.35, 0, 0, 0),
     BackgroundColor3 = Color3.fromRGB(70, 70, 100),
     BorderSizePixel = 0,
     Text = "-",
@@ -183,9 +168,10 @@ minusBtn.MouseButton1Click:Connect(function()
     setScale(currentScale - 0.02)
 end)
 
+-- Nút +
 local plusBtn = create("TextButton", {
-    Size = UDim2.new(0, 24, 1, 0),
-    Position = UDim2.new(0.5, 0, 0, 0),
+    Size = UDim2.new(0, 30, 1, 0),
+    Position = UDim2.new(0.55, 0, 0, 0),
     BackgroundColor3 = Color3.fromRGB(70, 70, 100),
     BorderSizePixel = 0,
     Text = "+",
@@ -199,58 +185,19 @@ plusBtn.MouseButton1Click:Connect(function()
     setScale(currentScale + 0.02)
 end)
 
-local sliderTrack = create("Frame", {
-    Size = UDim2.new(0.35, 0, 0.4, 0),
-    Position = UDim2.new(0.6, 0, 0.3, 0),
-    BackgroundColor3 = Color3.fromRGB(50, 50, 70),
-    BorderSizePixel = 0,
-    Parent = scaleFrame
-})
-create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = sliderTrack})
-
-local sliderThumb = create("TextButton", {
-    Size = UDim2.new(0, 16, 1.4, 0),
-    Position = UDim2.new((currentScale - minScale) / (maxScale - minScale), -8, -0.2, 0),
-    BackgroundColor3 = Color3.fromRGB(0, 230, 255),
-    BorderSizePixel = 0,
-    Text = "",
-    Parent = sliderTrack
-})
-create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = sliderThumb})
-
-local colorScale = nil
+-- Hàm setScale
+local colorUIScale = nil
 local function setScale(newScale)
     currentScale = math.clamp(newScale, minScale, maxScale)
-    mainScale.Scale = currentScale
-    if colorScale then
-        colorScale.Scale = currentScale
+    mainUIScale.Scale = currentScale
+    if colorUIScale then
+        colorUIScale.Scale = currentScale
     end
-    scaleLabel.Text = "Size: " .. round(currentScale * 100) .. "%"
-    local percent = (currentScale - minScale) / (maxScale - minScale)
-    sliderThumb.Position = UDim2.new(percent, -8, -0.2, 0)
+    print("[Scale] Đã set scale = " .. currentScale)
 end
 
-local dragging = false
-sliderThumb.MouseButton1Down:Connect(function()
-    dragging = true
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local trackPos = sliderTrack.AbsolutePosition.X
-        local trackSize = sliderTrack.AbsoluteSize.X
-        local mouseX = input.Position.X
-        local percent = math.clamp((mouseX - trackPos) / trackSize, 0, 1)
-        local newScale = minScale + percent * (maxScale - minScale)
-        setScale(newScale)
-    end
-end)
+-- Áp dụng scale ban đầu
+setScale(currentScale)
 
 -- ================================
 -- NHÓM CÀI ĐẶT ESP
@@ -356,12 +303,13 @@ boldOffBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ================================
--- NHÓM HIỆU NĂNG
+-- NHÓM HIỆU NĂNG (FPS + RENDER DIST)
 -- ================================
 local perfY = fontY + 40
 addGroupLabel(perfY, "— Performance —")
 perfY = perfY + 20
 
+-- FPS Counter
 local fpsToggle = createToggle(mainFrame, "📊 FPS Counter", perfY, false, function(state)
     showFPS = state
     if state then
@@ -387,6 +335,7 @@ local fpsToggle = createToggle(mainFrame, "📊 FPS Counter", perfY, false, func
     end
 end)
 
+-- Render Distance
 local distLabelY = perfY + spacing
 local distLabel = create("TextLabel", {
     Size = UDim2.new(0.85, 0, 0, 18),
@@ -429,6 +378,7 @@ for i = 1, 2 do
     table.insert(distBtns, btn)
 end
 
+-- Nút hành động (Refresh & Màu)
 local actionY = distLabelY + 60
 local refreshBtn = create("TextButton", {
     Size = UDim2.new(0.35, 0, 0, 30),
@@ -460,7 +410,7 @@ local colorBtn = create("TextButton", {
 create("UICorner", {CornerRadius = UDim.new(0,8), Parent = colorBtn})
 
 -- ================================
--- MENU MÀU SẮC (GIỮ NGUYÊN)
+-- MENU MÀU SẮC (RIÊNG BIỆT)
 -- ================================
 local colorSubMenu = create("Frame", {
     Size = UDim2.new(0, 500, 0, 640),
@@ -476,8 +426,9 @@ local colorSubMenu = create("Frame", {
 create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = colorSubMenu})
 create("UIStroke", {Color = Color3.fromRGB(180, 120, 255), Thickness = 2, Parent = colorSubMenu})
 
-colorScale = create("UIScale", {Scale = currentScale, Parent = colorSubMenu})
+colorUIScale = create("UIScale", {Scale = currentScale, Parent = colorSubMenu})
 
+-- Tiêu đề menu màu
 local subTitleBar = create("Frame", {
     Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Color3.fromRGB(120, 60, 220),
@@ -576,6 +527,7 @@ function updateColorBorders()
     end
 end
 
+-- Bảng màu nhóm
 local colorGroups = {
     {name = "PRIMARY", colors = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(0,255,0), Color3.fromRGB(255,0,255)}},
     {name = "COOL COLORS", colors = {Color3.fromRGB(0,150,255), Color3.fromRGB(0,255,200), Color3.fromRGB(0,200,255), Color3.fromRGB(150,100,255), Color3.fromRGB(200,150,255)}},
@@ -637,6 +589,7 @@ end
 
 createColorPalette()
 
+-- Nút Rainbow + Reset
 local rainbowBtn = create("TextButton", {
     Size = UDim2.new(0, 110, 0, 24),
     Position = UDim2.new(0.1, 0, 0, 605),
@@ -693,6 +646,7 @@ resetBtn.MouseButton1Click:Connect(function()
     updateAllESP()
 end)
 
+-- Mở menu màu
 colorBtn.MouseButton1Click:Connect(function()
     colorSubMenu.Visible = not colorSubMenu.Visible
     if colorSubMenu.Visible then updateColorBorders() end
@@ -759,7 +713,6 @@ local function updateESPForPlayer(targetPlayer)
 
     local char = targetPlayer.Character
     if not char then
-        -- Nếu không có character, tắt billboard (nếu tồn tại)
         if data.billboard then data.billboard.Enabled = false end
         return
     end
@@ -821,46 +774,27 @@ function updateAllESP()
     end
 end
 
--- Tạo ESP cho một player và lắng nghe CharacterAdded
 local function createESPForPlayer(targetPlayer)
     if targetPlayer == player then return end
 
     -- Xóa ESP cũ nếu có
-    local oldData = nil
     for i, d in ipairs(espList) do
         if d.player == targetPlayer then
-            oldData = d
+            if d.billboard then d.billboard:Destroy() end
+            table.remove(espList, i)
             break
         end
     end
-    if oldData then
-        if oldData.billboard then oldData.billboard:Destroy() end
-        table.remove(espList, table.find(espList, oldData))
-    end
 
-    -- Tạo mới nếu có Character
     local char = targetPlayer.Character
-    if not char or not char:FindFirstChild("Head") then
-        -- Chưa có Character (đang chết hoặc chưa spawn), vẫn lắng nghe CharacterAdded
-        -- Nhưng không tạo billboard ngay
-        local billboard = nil
-        local label = nil
-        -- Chỉ tạo khi có Character, nhưng vẫn lưu vào danh sách để khi hồi sinh sẽ tạo lại
-        -- Để đơn giản, ta sẽ tạo billboard ngay khi Character xuất hiện
-        -- Vậy ta sẽ lắng nghe và tạo khi CharacterAdded
-        -- Nhưng nếu đã có Character, tạo luôn
-    end
-
-    -- Tạo Billboard mới
-    local newChar = targetPlayer.Character
-    if newChar and newChar:FindFirstChild("Head") then
+    if char and char:FindFirstChild("Head") then
         local billboard = create("BillboardGui", {
             Name = "HBG_ESP_Billboard",
             Size = UDim2.new(0, 450, 0, 25),
             AlwaysOnTop = true,
-            Adornee = newChar.Head,
+            Adornee = char.Head,
             StudsOffset = Vector3.new(0, 2.8, 0),
-            Parent = newChar
+            Parent = char
         })
 
         local label = create("TextLabel", {
@@ -877,8 +811,7 @@ local function createESPForPlayer(targetPlayer)
         table.insert(espList, {player = targetPlayer, billboard = billboard, label = label})
         updateESPForPlayer(targetPlayer)
 
-        -- Kết nối HealthChanged
-        local humanoid = newChar:FindFirstChild("Humanoid")
+        local humanoid = char:FindFirstChild("Humanoid")
         if humanoid then
             local conn = humanoid:GetPropertyChangedSignal("Health"):Connect(function()
                 updateESPForPlayer(targetPlayer)
@@ -886,16 +819,14 @@ local function createESPForPlayer(targetPlayer)
             table.insert(updateConnections, conn)
         end
     else
-        -- Nếu không có Character, vẫn lưu một bản ghi trống để khi CharacterAdded sẽ xử lý
+        -- Chưa có character, lưu bản ghi trống để khi CharacterAdded sẽ tạo
         table.insert(espList, {player = targetPlayer, billboard = nil, label = nil})
     end
 
-    -- Lắng nghe CharacterAdded cho player này (để tạo lại ESP khi hồi sinh)
-    -- Nếu đã có kết nối thì không tạo mới
+    -- Lắng nghe CharacterAdded
     if not charAddedConnections[targetPlayer] then
-        local conn = targetPlayer.CharacterAdded:Connect(function(newChar)
-            task.wait(0.2) -- đợi character load
-            -- Tạo ESP mới cho player này (xóa cũ rồi tạo mới)
+        local conn = targetPlayer.CharacterAdded:Connect(function()
+            task.wait(0.2)
             createESPForPlayer(targetPlayer)
         end)
         charAddedConnections[targetPlayer] = conn
@@ -903,43 +834,32 @@ local function createESPForPlayer(targetPlayer)
 end
 
 function enableESP()
-    disableESP() -- dọn dẹp sạch sẽ
-
-    -- Tạo ESP cho tất cả player hiện tại
+    disableESP()
     for _, plr in ipairs(Players:GetPlayers()) do
         createESPForPlayer(plr)
     end
 
-    -- Lắng nghe player mới thêm
     Players.PlayerAdded:Connect(function(newPlayer)
         task.wait(0.5)
-        if espEnabled then
-            createESPForPlayer(newPlayer)
-        end
+        if espEnabled then createESPForPlayer(newPlayer) end
     end)
 
     print("[ESP] Đã bật ESP (" .. #espList .. " người chơi)")
 end
 
 function disableESP()
-    -- Xóa billboard
     for _, d in ipairs(espList) do
         if d.billboard then d.billboard:Destroy() end
     end
     espList = {}
-
-    -- Ngắt kết nối HealthChanged
     for _, conn in ipairs(updateConnections) do
         conn:Disconnect()
     end
     updateConnections = {}
-
-    -- Ngắt kết nối CharacterAdded
     for _, conn in pairs(charAddedConnections) do
         conn:Disconnect()
     end
     charAddedConnections = {}
-
     print("[ESP] Đã tắt ESP")
 end
 
@@ -951,9 +871,7 @@ function refreshESP()
     end
 end
 
--- Sự kiện PlayerRemoving: xóa khỏi danh sách và ngắt kết nối
 Players.PlayerRemoving:Connect(function(removedPlayer)
-    -- Xóa khỏi espList
     for i, d in ipairs(espList) do
         if d.player == removedPlayer then
             if d.billboard then d.billboard:Destroy() end
@@ -961,14 +879,12 @@ Players.PlayerRemoving:Connect(function(removedPlayer)
             break
         end
     end
-    -- Ngắt CharacterAdded
     if charAddedConnections[removedPlayer] then
         charAddedConnections[removedPlayer]:Disconnect()
         charAddedConnections[removedPlayer] = nil
     end
 end)
 
--- Vòng lặp cập nhật ESP (khoảng cách, HP)
 RunService.Heartbeat:Connect(function()
     if espEnabled then
         for _, d in ipairs(espList) do
@@ -980,6 +896,5 @@ end)
 -- ================================
 -- KHỞI ĐỘNG
 -- ================================
-print("[HBG] Blox Loot ESP V24.0 - Fix ESP sau khi chết đã tải!")
-print("⚡ Click nút ⚡ để mở menu.")
-print("🔄 Khi player chết và hồi sinh, ESP sẽ tự động hiện lại.")
+print("[HBG] Blox Loot ESP V26.0 - Scale tối ưu (40%, max 70%) đã tải!")
+print("⚡ Click nút ⚡ để mở menu. Bấm + hoặc - để chỉnh kích thước menu.")
