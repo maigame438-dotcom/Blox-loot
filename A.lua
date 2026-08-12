@@ -1,5 +1,5 @@
 -- ============================================================
--- AUTO CLICKER PRO MOBILE V3.0 - FULL LOGIC + UI
+-- AUTO CLICKER PRO MOBILE V4.0 - FULL FIX + RESPONSIVE
 -- Tác giả: HBG (Huy Báo Game)
 -- ============================================================
 
@@ -15,21 +15,21 @@ local existingGui = player.PlayerGui:FindFirstChild("AutoClickerGUI")
 if existingGui then existingGui:Destroy() end
 
 -- ================================
--- BIẾN TOÀN CỤC (GIỮ LOGIC CŨ)
+-- BIẾN TOÀN CỤC
 -- ================================
-local isRunning = false            -- Auto click đang chạy?
-local isAutoClickOn = false        -- Trạng thái ON/OFF (đồng bộ với isRunning)
+local isRunning = false
+local isAutoClickOn = false
 local currentCPS = 10
-local currentInterval = 0.10       -- giây
+local currentInterval = 0.10
 local clickCount = 0
 local clickPosition = nil          -- {X, Y}
 local isPositionSet = false
-local targetMode = "SINGLE"        -- "SINGLE" hoặc "MULTI"
+local targetMode = "SINGLE"
 local menuVisible = true
 local isMinimized = false
 local isSettingPosition = false
 local loopThread = nil
-local lastClickTime = 0
+local markerObject = nil           -- để xóa marker khi reset
 
 -- ================================
 -- HÀM TIỆN ÍCH
@@ -48,11 +48,11 @@ local function getCurrentTool()
     return char:FindFirstChildWhichIsA("Tool")
 end
 
-local function updateToolDisplay()
-    local tool = getCurrentTool()
-    if toolLabel then
-        toolLabel.Text = "⚔ " .. (tool and tool.Name or "None")
+local function formatNumber(num)
+    if num >= 1000 then
+        return string.format("%.1fK", num/1000)
     end
+    return tostring(num)
 end
 
 -- ================================
@@ -60,7 +60,6 @@ end
 -- ================================
 local function autoClickLoop()
     while isRunning do
-        -- Kiểm tra nếu ON
         if isAutoClickOn then
             local tool = getCurrentTool()
             if tool then
@@ -70,18 +69,15 @@ local function autoClickLoop()
                     if clickCountLabel then
                         clickCountLabel.Text = formatNumber(clickCount)
                     end
-                    lastClickTime = tick()
                 end)
             else
-                -- Không có tool: vẫn chạy nhưng không click, chỉ cập nhật status
+                -- Không có tool: cập nhật status
                 if statusLabel then
                     statusLabel.Text = "● WAITING FOR TOOL"
                     statusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
                 end
             end
-            -- Delay dựa trên interval (ưu tiên interval nếu được set)
             local delay = (currentInterval and currentInterval > 0) and currentInterval or (1 / currentCPS)
-            -- Giới hạn delay tối thiểu 0.02s để tránh crash
             if delay < 0.02 then delay = 0.02 end
             task.wait(delay)
         else
@@ -124,15 +120,8 @@ local function toggleAutoClick()
 end
 
 -- ================================
--- HÀM CẬP NHẬT UI
+-- CẬP NHẬT UI
 -- ================================
-local function formatNumber(num)
-    if num >= 1000 then
-        return string.format("%.1fK", num/1000)
-    end
-    return tostring(num)
-end
-
 local function updateUI()
     -- Status
     if statusLabel then
@@ -149,14 +138,12 @@ local function updateUI()
         toggleBtn.Text = isAutoClickOn and "ON" or "OFF"
         toggleBtn.BackgroundColor3 = isAutoClickOn and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(80, 80, 100)
     end
-    -- Action button
-    if actionBtn then
-        actionBtn.Text = isRunning and "■ STOP AUTO CLICK" or "▶ START AUTO CLICK"
-        actionBtn.BackgroundColor3 = isRunning and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(0, 180, 80)
-    end
     -- CPS
     if cpsDisplay then
         cpsDisplay.Text = "CPS: " .. currentCPS
+    end
+    if cpsValueBtn then
+        cpsValueBtn.Text = tostring(currentCPS)
     end
     -- Interval
     if intervalLabel then
@@ -164,7 +151,8 @@ local function updateUI()
     end
     -- Tool
     if toolLabel then
-        updateToolDisplay()
+        local tool = getCurrentTool()
+        toolLabel.Text = "⚔ " .. (tool and tool.Name or "None")
     end
     -- Click count
     if clickCountLabel then
@@ -175,7 +163,7 @@ local function updateUI()
         if isPositionSet and clickPosition then
             posLabel.Text = "X: " .. math.floor(clickPosition.X) .. " Y: " .. math.floor(clickPosition.Y)
         else
-            posLabel.Text = "Not Set"
+            posLabel.Text = "X: Not Set  Y: Not Set"
         end
     end
     -- Target mode
@@ -192,58 +180,26 @@ local function updateUI()
             singleBtn.TextColor3 = Color3.fromRGB(200,200,200)
         end
     end
-    -- Mini bar (nếu thu nhỏ)
-    if miniBar then
-        if isMinimized then
-            miniBar.Visible = true
-            mainFrame.Visible = false
-            floatBtn.Visible = false
-        else
-            miniBar.Visible = false
-            mainFrame.Visible = menuVisible
-            floatBtn.Visible = not menuVisible and not isMinimized
-        end
-    end
 end
 
 -- ================================
--- XỬ LÝ ĐÓNG / THU NHỎ / MỞ MENU
+-- XỬ LÝ ĐÓNG / MỞ MENU
 -- ================================
 local function closeMenu()
     menuVisible = false
-    isMinimized = false
     mainFrame.Visible = false
-    floatBtn.Visible = true
-    if miniBar then miniBar.Visible = false end
-end
-
-local function minimizeMenu()
-    isMinimized = true
-    menuVisible = false
-    mainFrame.Visible = false
-    floatBtn.Visible = false
-    if miniBar then miniBar.Visible = true end
-end
-
-local function restoreFromMinimize()
-    isMinimized = false
-    menuVisible = true
-    mainFrame.Visible = true
-    floatBtn.Visible = false
-    if miniBar then miniBar.Visible = false end
+    if floatBtn then floatBtn.Visible = true end
 end
 
 local function showMenu()
     menuVisible = true
-    isMinimized = false
     mainFrame.Visible = true
-    floatBtn.Visible = false
-    if miniBar then miniBar.Visible = false end
+    if floatBtn then floatBtn.Visible = false end
     updateUI()
 end
 
 -- ================================
--- TẠO GIAO DIỆN MỚI (NHỎ HƠN)
+-- TẠO GIAO DIỆN (RESPONSIVE)
 -- ================================
 local screenGui = create("ScreenGui", {
     Name = "AutoClickerGUI",
@@ -251,14 +207,21 @@ local screenGui = create("ScreenGui", {
     ResetOnSpawn = false
 })
 
--- Sử dụng UIScale để tự co giãn (dùng cho mobile)
-local mainScale = Instance.new("UIScale")
-mainScale.Scale = 0.75
+-- Lấy kích thước màn hình
+local viewport = workspace.CurrentCamera.ViewportSize
+local isLandscape = viewport.X > viewport.Y
+
+-- Tính kích thước menu dựa trên tỷ lệ màn hình
+local menuWidth = isLandscape and math.min(viewport.X * 0.35, 350) or math.min(viewport.X * 0.85, 320)
+local menuHeight = isLandscape and math.min(viewport.Y * 0.8, 400) or math.min(viewport.Y * 0.7, 420)
+
+-- Đảm bảo menu không vượt quá 80% chiều cao màn hình
+menuHeight = math.min(menuHeight, viewport.Y * 0.8)
 
 -- ---- FRAME CHÍNH ----
 local mainFrame = create("Frame", {
-    Size = UDim2.new(0, 300, 0, 420),
-    Position = UDim2.new(0.5, -150, 0.5, -210),
+    Size = UDim2.new(0, menuWidth, 0, menuHeight),
+    Position = UDim2.new(0.5, -menuWidth/2, 0.5, -menuHeight/2),
     BackgroundColor3 = Color3.fromRGB(18, 18, 28),
     BackgroundTransparency = 0.08,
     BorderSizePixel = 1,
@@ -268,7 +231,6 @@ local mainFrame = create("Frame", {
     Visible = true,
     Parent = screenGui
 })
-mainScale.Parent = mainFrame
 create("UICorner", {CornerRadius = UDim.new(0, 12), Parent = mainFrame})
 create("UIStroke", {Color = Color3.fromRGB(80, 120, 200), Thickness = 1, Parent = mainFrame})
 
@@ -294,7 +256,7 @@ local titleLabel = create("TextLabel", {
     Parent = titleBar
 })
 
--- Nút minimize
+-- Nút minimize (dấu -)
 local minBtn = create("TextButton", {
     Size = UDim2.new(0, 24, 0, 24),
     Position = UDim2.new(1, -56, 0.5, -12),
@@ -308,7 +270,7 @@ local minBtn = create("TextButton", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = minBtn})
 
--- Nút close
+-- Nút đóng (X)
 local closeBtn = create("TextButton", {
     Size = UDim2.new(0, 24, 0, 24),
     Position = UDim2.new(1, -28, 0.5, -12),
@@ -322,14 +284,14 @@ local closeBtn = create("TextButton", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = closeBtn})
 
--- ---- NỘI DUNG (dùng ScrollingFrame nếu nội dung dài) ----
+-- ---- SCROLLING FRAME CHO NỘI DUNG ----
 local contentScroller = create("ScrollingFrame", {
     Size = UDim2.new(1, -12, 1, -42),
     Position = UDim2.new(0, 6, 0, 36),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 2,
-    CanvasSize = UDim2.new(0, 0, 0, 380),
+    CanvasSize = UDim2.new(0, 0, 0, 420),
     Parent = mainFrame
 })
 
@@ -381,7 +343,7 @@ local toggleBtn = create("TextButton", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = toggleBtn})
 
--- ---- SPEED (CPS + Slider) ----
+-- ---- SPEED ----
 local speedLabel = create("TextLabel", {
     Size = UDim2.new(1, 0, 0, 18),
     Position = UDim2.new(0, 0, 0, 60),
@@ -465,7 +427,7 @@ local sliderThumb = create("TextButton", {
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = sliderThumb})
 
 -- ---- INTERVAL ----
-local intervalLabelTitle = create("TextLabel", {
+local intervalTitle = create("TextLabel", {
     Size = UDim2.new(1, 0, 0, 18),
     Position = UDim2.new(0, 0, 0, 126),
     BackgroundTransparency = 1,
@@ -570,15 +532,26 @@ local posTitle = create("TextLabel", {
     Parent = content
 })
 
-local posFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 28),
+local posLabel = create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 18),
     Position = UDim2.new(0, 0, 0, 296),
+    BackgroundTransparency = 1,
+    Text = "X: Not Set  Y: Not Set",
+    TextColor3 = Color3.fromRGB(150, 150, 200),
+    TextScaled = true,
+    Font = Enum.Font.Gotham,
+    Parent = content
+})
+
+local posBtnFrame = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 28),
+    Position = UDim2.new(0, 0, 0, 316),
     BackgroundTransparency = 1,
     Parent = content
 })
 
 local setPosBtn = create("TextButton", {
-    Size = UDim2.new(0.3, 0, 1, 0),
+    Size = UDim2.new(0.28, 0, 1, 0),
     Position = UDim2.new(0, 0, 0, 0),
     BackgroundColor3 = Color3.fromRGB(60, 60, 100),
     Text = "SET",
@@ -586,46 +559,35 @@ local setPosBtn = create("TextButton", {
     TextScaled = true,
     Font = Enum.Font.GothamBold,
     BorderSizePixel = 0,
-    Parent = posFrame
+    Parent = posBtnFrame
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = setPosBtn})
 
 local testPosBtn = create("TextButton", {
-    Size = UDim2.new(0.3, 0, 1, 0),
-    Position = UDim2.new(0.35, 0, 0, 0),
+    Size = UDim2.new(0.28, 0, 1, 0),
+    Position = UDim2.new(0.34, 0, 0, 0),
     BackgroundColor3 = Color3.fromRGB(60, 60, 100),
     Text = "TEST",
     TextColor3 = Color3.fromRGB(255,255,255),
     TextScaled = true,
     Font = Enum.Font.GothamBold,
     BorderSizePixel = 0,
-    Parent = posFrame
+    Parent = posBtnFrame
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = testPosBtn})
 
 local resetPosBtn = create("TextButton", {
-    Size = UDim2.new(0.3, 0, 1, 0),
-    Position = UDim2.new(0.7, 0, 0, 0),
+    Size = UDim2.new(0.28, 0, 1, 0),
+    Position = UDim2.new(0.68, 0, 0, 0),
     BackgroundColor3 = Color3.fromRGB(60, 60, 100),
     Text = "RESET",
     TextColor3 = Color3.fromRGB(255,255,255),
     TextScaled = true,
     Font = Enum.Font.GothamBold,
     BorderSizePixel = 0,
-    Parent = posFrame
+    Parent = posBtnFrame
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = resetPosBtn})
-
-local posLabel = create("TextLabel", {
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 328),
-    BackgroundTransparency = 1,
-    Text = "Not Set",
-    TextColor3 = Color3.fromRGB(150, 150, 200),
-    TextScaled = true,
-    Font = Enum.Font.Gotham,
-    Parent = content
-})
 
 -- ---- CLICKS ----
 local clickTitle = create("TextLabel", {
@@ -651,8 +613,8 @@ local clickCountLabel = create("TextLabel", {
 })
 
 local resetCountBtn = create("TextButton", {
-    Size = UDim2.new(0.25, 0, 0, 20),
-    Position = UDim2.new(0.7, 0, 0, 370),
+    Size = UDim2.new(0.28, 0, 0, 20),
+    Position = UDim2.new(0.68, 0, 0, 370),
     BackgroundColor3 = Color3.fromRGB(60, 60, 80),
     Text = "RESET",
     TextColor3 = Color3.fromRGB(255,255,255),
@@ -663,22 +625,8 @@ local resetCountBtn = create("TextButton", {
 })
 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = resetCountBtn})
 
--- ---- START / STOP BUTTON ----
-local actionBtn = create("TextButton", {
-    Size = UDim2.new(0.8, 0, 0, 36),
-    Position = UDim2.new(0.1, 0, 0, 400),
-    BackgroundColor3 = Color3.fromRGB(0, 180, 80),
-    Text = "▶ START AUTO CLICK",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = content
-})
-create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = actionBtn})
-
 -- Cập nhật CanvasSize cho ScrollingFrame
-contentScroller.CanvasSize = UDim2.new(0, 0, 0, 450)
+contentScroller.CanvasSize = UDim2.new(0, 0, 0, 410)
 
 -- ---- NÚT NỔI AC ----
 local floatBtn = create("TextButton", {
@@ -696,43 +644,6 @@ local floatBtn = create("TextButton", {
     Parent = screenGui
 })
 create("UICorner", {CornerRadius = UDim.new(0, 22), Parent = floatBtn})
-
--- ---- MINI BAR (khi thu nhỏ) ----
-local miniBar = create("Frame", {
-    Size = UDim2.new(0, 120, 0, 30),
-    Position = UDim2.new(0.5, -60, 0.9, 0),
-    BackgroundColor3 = Color3.fromRGB(18, 18, 28),
-    BackgroundTransparency = 0.1,
-    BorderSizePixel = 1,
-    BorderColor3 = Color3.fromRGB(80, 120, 200),
-    Visible = false,
-    Parent = screenGui
-})
-create("UICorner", {CornerRadius = UDim.new(0, 10), Parent = miniBar})
-
-local miniLabel = create("TextLabel", {
-    Size = UDim2.new(0.7, 0, 1, 0),
-    Position = UDim2.new(0.05, 0, 0, 0),
-    BackgroundTransparency = 1,
-    Text = "AUTO CLICKER",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    Parent = miniBar
-})
-
-local miniRestore = create("TextButton", {
-    Size = UDim2.new(0, 24, 0, 24),
-    Position = UDim2.new(1, -28, 0.5, -12),
-    BackgroundColor3 = Color3.fromRGB(60, 60, 80),
-    Text = "+",
-    TextColor3 = Color3.fromRGB(255,255,255),
-    TextScaled = true,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    Parent = miniBar
-})
-create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = miniRestore})
 
 -- ================================
 -- XỬ LÝ KÉO THẢ (TOUCH)
@@ -763,7 +674,7 @@ local function endDrag()
     dragData.object = nil
 end
 
--- Gắn kéo cho title bar và nút AC
+-- Gắn sự kiện kéo cho title bar và nút AC
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         startDrag(mainFrame, input)
@@ -772,11 +683,6 @@ end)
 floatBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         startDrag(floatBtn, input)
-    end
-end)
-miniBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        startDrag(miniBar, input)
     end
 end)
 
@@ -811,9 +717,7 @@ UserInputService.InputChanged:Connect(function(input)
         if newCPS ~= currentCPS then
             currentCPS = newCPS
             sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-            cpsValueBtn.Text = tostring(currentCPS)
             currentInterval = 1 / currentCPS
-            intervalLabel.Text = string.format("%.2fs", currentInterval)
             updateUI()
         end
     end
@@ -825,30 +729,30 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ================================
--- XỬ LÝ SỰ KIỆN NÚT
+-- XỬ LÝ SỰ KIỆN NÚT (TOUCH + CLICK)
 -- ================================
 
--- ĐÓNG
+-- Đóng menu
 closeBtn.MouseButton1Click:Connect(closeMenu)
+closeBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        closeMenu()
+    end
+end)
 
--- THU NHỎ
-minBtn.MouseButton1Click:Connect(minimizeMenu)
-
--- MỞ LẠI TỪ MINI
-miniRestore.MouseButton1Click:Connect(restoreFromMinimize)
-
--- NÚT AC
+-- Mở menu từ AC
 floatBtn.MouseButton1Click:Connect(showMenu)
+floatBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        showMenu()
+    end
+end)
 
--- TOGGLE AUTO CLICK
+-- Toggle AUTO CLICK
 toggleBtn.MouseButton1Click:Connect(toggleAutoClick)
-
--- START/STOP
-actionBtn.MouseButton1Click:Connect(function()
-    if isRunning then
-        stopAutoClick()
-    else
-        startAutoClick()
+toggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        toggleAutoClick()
     end
 end)
 
@@ -857,24 +761,41 @@ cpsMinus.MouseButton1Click:Connect(function()
     if currentCPS > 1 then
         currentCPS = currentCPS - 1
         sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-        cpsValueBtn.Text = tostring(currentCPS)
         currentInterval = 1 / currentCPS
-        intervalLabel.Text = string.format("%.2fs", currentInterval)
         updateUI()
     end
 end)
+cpsMinus.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        if currentCPS > 1 then
+            currentCPS = currentCPS - 1
+            sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
+            currentInterval = 1 / currentCPS
+            updateUI()
+        end
+    end
+end)
+
 cpsPlus.MouseButton1Click:Connect(function()
     if currentCPS < 20 then
         currentCPS = currentCPS + 1
         sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-        cpsValueBtn.Text = tostring(currentCPS)
         currentInterval = 1 / currentCPS
-        intervalLabel.Text = string.format("%.2fs", currentInterval)
         updateUI()
     end
 end)
+cpsPlus.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        if currentCPS < 20 then
+            currentCPS = currentCPS + 1
+            sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
+            currentInterval = 1 / currentCPS
+            updateUI()
+        end
+    end
+end)
 
--- INTERVAL (chọn nhanh các giá trị)
+-- INTERVAL (xoay vòng các giá trị)
 local intervalOptions = {0.05, 0.10, 0.20, 0.50, 1.00, 2.00}
 local intervalIndex = 2
 intervalBtn.MouseButton1Click:Connect(function()
@@ -884,9 +805,18 @@ intervalBtn.MouseButton1Click:Connect(function()
     if currentCPS > 20 then currentCPS = 20 end
     if currentCPS < 1 then currentCPS = 1 end
     sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
-    cpsValueBtn.Text = tostring(currentCPS)
-    intervalLabel.Text = string.format("%.2fs", currentInterval)
     updateUI()
+end)
+intervalBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        intervalIndex = (intervalIndex % #intervalOptions) + 1
+        currentInterval = intervalOptions[intervalIndex]
+        currentCPS = math.floor(1 / currentInterval)
+        if currentCPS > 20 then currentCPS = 20 end
+        if currentCPS < 1 then currentCPS = 1 end
+        sliderThumb.Position = UDim2.new((currentCPS-1)/19, -8, 0.5, -8)
+        updateUI()
+    end
 end)
 
 -- TARGET MODE
@@ -894,9 +824,22 @@ singleBtn.MouseButton1Click:Connect(function()
     targetMode = "SINGLE"
     updateUI()
 end)
+singleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        targetMode = "SINGLE"
+        updateUI()
+    end
+end)
+
 multiBtn.MouseButton1Click:Connect(function()
     targetMode = "MULTI"
     updateUI()
+end)
+multiBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        targetMode = "MULTI"
+        updateUI()
+    end
 end)
 
 -- RESET COUNT
@@ -906,14 +849,55 @@ resetCountBtn.MouseButton1Click:Connect(function()
         clickCountLabel.Text = "0"
     end
 end)
+resetCountBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        clickCount = 0
+        if clickCountLabel then
+            clickCountLabel.Text = "0"
+        end
+    end
+end)
 
--- SET POSITION
+-- ================================
+-- SET POSITION (TOUCH)
+-- ================================
+local function removeMarker()
+    if markerObject then
+        markerObject:Destroy()
+        markerObject = nil
+    end
+end
+
+local function createMarker(x, y, color)
+    removeMarker()
+    markerObject = create("Frame", {
+        Size = UDim2.new(0, 50, 0, 50),
+        Position = UDim2.new(0, x - 25, 0, y - 25),
+        BackgroundColor3 = color or Color3.fromRGB(255, 200, 0),
+        BackgroundTransparency = 0.3,
+        BorderSizePixel = 2,
+        BorderColor3 = Color3.fromRGB(255, 255, 255),
+        Visible = true,
+        Parent = screenGui
+    })
+    create("UICorner", {CornerRadius = UDim.new(0, 25), Parent = markerObject})
+    local label = create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 20),
+        Position = UDim2.new(0, 0, 0.5, -10),
+        BackgroundTransparency = 1,
+        Text = "CLICK",
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.GothamBold,
+        Parent = markerObject
+    })
+end
+
 setPosBtn.MouseButton1Click:Connect(function()
     if isSettingPosition then return end
     isSettingPosition = true
-    -- Ẩn menu (vẫn giữ nếu auto click đang chạy)
     mainFrame.Visible = false
-    -- Tạo lớp chọn vị trí
+    -- Tạo overlay
     local overlay = create("Frame", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -940,7 +924,6 @@ setPosBtn.MouseButton1Click:Connect(function()
     local connection
     connection = UserInputService.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
-            -- Lấy vị trí touch
             local pos = input.Position
             clickPosition = {X = pos.X, Y = pos.Y}
             isPositionSet = true
@@ -948,31 +931,21 @@ setPosBtn.MouseButton1Click:Connect(function()
             connection:Disconnect()
             isSettingPosition = false
             mainFrame.Visible = true
+            createMarker(pos.X, pos.Y, Color3.fromRGB(0, 255, 0))
             updateUI()
-            -- Thông báo đã lưu
-            local note = create("TextLabel", {
-                Size = UDim2.new(0, 200, 0, 30),
-                Position = UDim2.new(0.5, -100, 0.5, -15),
-                BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-                BackgroundTransparency = 0.5,
-                Text = "Position saved!",
-                TextColor3 = Color3.fromRGB(0, 255, 0),
-                TextScaled = true,
-                Font = Enum.Font.GothamBold,
-                Parent = screenGui
-            })
-            create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = note})
-            task.delay(1, function()
-                note:Destroy()
-            end)
         end
     end)
+end)
+setPosBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        setPosBtn.MouseButton1Click:Fire()
+    end
 end)
 
 -- TEST CLICK
 testPosBtn.MouseButton1Click:Connect(function()
     if not isPositionSet or not clickPosition then
-        -- Hiển thị thông báo
+        -- Thông báo
         local note = create("TextLabel", {
             Size = UDim2.new(0, 200, 0, 30),
             Position = UDim2.new(0.5, -100, 0.5, -15),
@@ -985,48 +958,22 @@ testPosBtn.MouseButton1Click:Connect(function()
             Parent = screenGui
         })
         create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = note})
-        task.delay(1, function()
-            note:Destroy()
-        end)
+        task.delay(1, function() note:Destroy() end)
         return
     end
-    -- Thực hiện test click: nếu có tool thì Activate, nếu không thì chỉ hiển thị vị trí
     local tool = getCurrentTool()
     if tool then
-        pcall(function()
-            tool:Activate()
-        end)
-        -- Hiển thị marker xanh tại vị trí đã chọn
-        local marker = create("Frame", {
-            Size = UDim2.new(0, 30, 0, 30),
-            Position = UDim2.new(0, clickPosition.X - 15, 0, clickPosition.Y - 15),
-            BackgroundColor3 = Color3.fromRGB(0, 255, 0),
-            BackgroundTransparency = 0.3,
-            BorderSizePixel = 2,
-            BorderColor3 = Color3.fromRGB(255, 255, 255),
-            Visible = true,
-            Parent = screenGui
-        })
-        create("UICorner", {CornerRadius = UDim.new(0, 15), Parent = marker})
-        task.delay(0.5, function()
-            marker:Destroy()
-        end)
+        pcall(function() tool:Activate() end)
+        createMarker(clickPosition.X, clickPosition.Y, Color3.fromRGB(0, 255, 0))
+        task.delay(0.8, function() removeMarker() end)
     else
-        -- Không có tool, chỉ hiển thị vị trí
-        local marker = create("Frame", {
-            Size = UDim2.new(0, 30, 0, 30),
-            Position = UDim2.new(0, clickPosition.X - 15, 0, clickPosition.Y - 15),
-            BackgroundColor3 = Color3.fromRGB(255, 200, 0),
-            BackgroundTransparency = 0.3,
-            BorderSizePixel = 2,
-            BorderColor3 = Color3.fromRGB(255, 255, 255),
-            Visible = true,
-            Parent = screenGui
-        })
-        create("UICorner", {CornerRadius = UDim.new(0, 15), Parent = marker})
-        task.delay(0.5, function()
-            marker:Destroy()
-        end)
+        createMarker(clickPosition.X, clickPosition.Y, Color3.fromRGB(255, 200, 0))
+        task.delay(0.8, function() removeMarker() end)
+    end
+end)
+testPosBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        testPosBtn.MouseButton1Click:Fire()
     end
 end)
 
@@ -1034,22 +981,28 @@ end)
 resetPosBtn.MouseButton1Click:Connect(function()
     clickPosition = nil
     isPositionSet = false
+    removeMarker()
     updateUI()
+end)
+resetPosBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        resetPosBtn.MouseButton1Click:Fire()
+    end
 end)
 
 -- ================================
 -- CẬP NHẬT TOOL
 -- ================================
 local function onCharacterAdded(char)
-    updateToolDisplay()
+    updateUI()
     char.ChildAdded:Connect(function(child)
         if child:IsA("Tool") then
-            updateToolDisplay()
+            updateUI()
         end
     end)
     char.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") and child == getCurrentTool() then
-            updateToolDisplay()
+        if child:IsA("Tool") then
+            updateUI()
         end
     end)
 end
@@ -1061,22 +1014,33 @@ player.CharacterAdded:Connect(onCharacterAdded)
 
 player.CharacterAdded:Connect(function()
     task.wait(0.2)
-    updateToolDisplay()
     updateUI()
 end)
+
+-- ================================
+-- RESPONSIVE: CẬP NHẬT KHI XOAY MÀN HÌNH
+-- ================================
+local function onViewportChanged()
+    local newViewport = workspace.CurrentCamera.ViewportSize
+    local isLandscapeNew = newViewport.X > newViewport.Y
+    local newWidth = isLandscapeNew and math.min(newViewport.X * 0.35, 350) or math.min(newViewport.X * 0.85, 320)
+    local newHeight = isLandscapeNew and math.min(newViewport.Y * 0.8, 400) or math.min(newViewport.Y * 0.7, 420)
+    newHeight = math.min(newHeight, newViewport.Y * 0.8)
+    mainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
+    mainFrame.Position = UDim2.new(0.5, -newWidth/2, 0.5, -newHeight/2)
+    -- Cập nhật CanvasSize nếu cần
+end
+
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(onViewportChanged)
 
 -- ================================
 -- KHỞI TẠO UI
 -- ================================
 updateUI()
-
--- ================================
--- THÔNG BÁO
--- ================================
-print("===== AUTO CLICKER PRO MOBILE V3.0 =====")
-print("✅ Đã sẵn sàng.")
-print("🔘 Chạm SET POSITION và chạm màn hình để chọn vị trí.")
-print("🔘 TEST CLICK sẽ kích hoạt tool tại vị trí đã chọn.")
-print("🔘 Menu có thể kéo bằng touch, thu nhỏ, đóng.")
-print("🔘 Auto Click vẫn chạy khi menu đóng.")
+print("===== AUTO CLICKER PRO MOBILE V4.0 =====")
+print("✅ Đã sẵn sàng. Nút X đóng menu, AC mở lại.")
+print("🔘 Toggle AUTO CLICK để bật/tắt click.")
+print("📍 SET POSITION: chạm vào màn hình để chọn vị trí.")
+print("🔘 TEST: click thử một lần tại vị trí đã chọn.")
+print("📱 Menu responsive, hỗ trợ touch.")
 print("=========================================")
