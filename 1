@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kho file siêu lớn - GoFile</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 850px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        h1 { text-align:center; margin-bottom:4px; color:#2d3748; }
+        .sub { text-align:center; color:#718096; margin-bottom:20px; font-size:14px; }
+        .row {
+            display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;
+        }
+        .row input {
+            flex:1; padding:12px 16px; border:2px solid #e2e8f0; border-radius:10px;
+            font-size:16px; outline:none; transition:0.2s; min-width:150px;
+        }
+        .row input:focus { border-color:#667eea; }
+        .btn {
+            background:#667eea; color:white; border:none; padding:12px 24px;
+            border-radius:10px; font-weight:600; cursor:pointer; transition:0.2s;
+            font-size:15px; white-space:nowrap;
+        }
+        .btn:hover { background:#5a67d8; transform:scale(1.02); }
+        .btn-success { background:#48bb78; }
+        .btn-success:hover { background:#38a169; }
+        .btn-warning { background:#ed8936; }
+        .btn-warning:hover { background:#dd6b20; }
+        .info-box {
+            background:#f0f4ff; padding:12px 16px; border-radius:10px;
+            margin:10px 0; color:#2b6cb0; font-size:14px; word-break:break-all;
+        }
+        .upload-area {
+            border:2px dashed #cbd5e0; border-radius:16px; padding:30px 20px;
+            text-align:center; cursor:pointer; transition:0.2s; background:#f7fafc;
+            margin:15px 0;
+        }
+        .upload-area:hover { border-color:#667eea; background:#edf2f7; }
+        .upload-area input { display:none; }
+        .upload-icon { font-size:40px; }
+        .upload-text { margin-top:8px; color:#4a5568; }
+        .upload-text span { color:#667eea; font-weight:bold; }
+        .progress { width:100%; height:6px; background:#e2e8f0; border-radius:6px; margin:10px 0; overflow:hidden; display:none; }
+        .progress-bar { height:100%; background:linear-gradient(90deg,#667eea,#764ba2); width:0%; transition:width 0.3s; }
+        .file-list { list-style:none; margin:15px 0; }
+        .file-item {
+            background:#f7fafc; padding:14px 18px; border-radius:12px; margin-bottom:8px;
+            display:flex; justify-content:space-between; align-items:center;
+            border:1px solid #e2e8f0; transition:0.2s; flex-wrap:wrap;
+        }
+        .file-item:hover { border-color:#667eea; background:#edf2f7; }
+        .file-info { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+        .file-name { font-weight:500; color:#2d3748; word-break:break-all; }
+        .file-size { font-size:12px; color:#a0aec0; margin-left:8px; }
+        .file-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .file-actions a, .file-actions button {
+            background:#edf2f7; color:#2d3748; border:none; padding:6px 14px;
+            border-radius:6px; font-size:13px; cursor:pointer; transition:0.2s;
+            text-decoration:none; display:inline-block;
+        }
+        .file-actions a:hover, .file-actions button:hover { background:#e2e8f0; }
+        .file-actions .download { background:#c6f6d5; color:#276749; }
+        .file-actions .download:hover { background:#9ae6b4; }
+        .file-actions .copy { background:#fefcbf; color:#975a16; }
+        .file-actions .copy:hover { background:#f6e05e; }
+        .msg { text-align:center; margin:10px 0; font-weight:500; color:#48bb78; }
+        .msg.error { color:#fc8181; }
+        .footer { margin-top:20px; text-align:center; color:#a0aec0; font-size:12px; }
+        .empty { text-align:center; color:#a0aec0; padding:20px; }
+        .badge { background:#ebf8ff; color:#2b6cb0; padding:4px 12px; border-radius:20px; font-size:13px; }
+        .flex { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+        .manual-note { background:#fffbeb; border-left:4px solid #d69e2e; padding:12px 16px; border-radius:8px; margin:10px 0; color:#744210; font-size:14px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📦 Kho file siêu lớn</h1>
+    <p class="sub">Upload file >1GB, chia sẻ link cho người khác</p>
+
+    <div class="row">
+        <input type="text" id="folderInput" placeholder="Nhập mã kho (folder ID)" value="">
+        <button id="enterBtn" class="btn">🔑 Vào kho</button>
+        <button id="createBtn" class="btn btn-success">🆕 Tạo kho mới</button>
+    </div>
+
+    <div id="infoBox" class="info-box" style="display:none;"></div>
+
+    <!-- Hướng dẫn tạo kho thủ công nếu API lỗi -->
+    <div id="manualNote" class="manual-note" style="display:none;">
+        <strong>⚠️ Không tạo được kho tự động?</strong> Hãy <a href="https://gofile.io/upload" target="_blank">tạo kho thủ công trên GoFile</a>, sau đó sao chép mã kho (trong URL) và dán vào ô trên.
+    </div>
+
+    <div class="upload-area" id="dropZone">
+        <div class="upload-icon">📤</div>
+        <div class="upload-text"><span>Chọn file</span> hoặc kéo thả (không giới hạn dung lượng)</div>
+        <input type="file" id="fileInput" multiple>
+    </div>
+    <div class="progress" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+
+    <ul class="file-list" id="fileList"><li class="empty">📭 Chưa có file nào</li></ul>
+    <div id="message" class="msg"></div>
+    <div class="footer">🔒 Dữ liệu lưu trên GoFile.io (tự động xóa sau 7 ngày không hoạt động)</div>
+</div>
+
+<script>
+    // ------------------ Cấu hình ------------------
+    const API_BASE = 'https://api.gofile.io';
+    // ---------------------------------------------
+
+    let currentFolderId = '';
+
+    const folderInput = document.getElementById('folderInput');
+    const enterBtn = document.getElementById('enterBtn');
+    const createBtn = document.getElementById('createBtn');
+    const fileList = document.getElementById('fileList');
+    const message = document.getElementById('message');
+    const infoBox = document.getElementById('infoBox');
+    const manualNote = document.getElementById('manualNote');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+
+    function showMsg(text, type = '') {
+        message.textContent = text;
+        message.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    function showInfo(text) {
+        infoBox.style.display = 'block';
+        infoBox.innerHTML = text;
+    }
+    function hideInfo() { infoBox.style.display = 'none'; }
+
+    // Lấy danh sách file từ folderId
+    async function fetchFiles(folderId) {
+        try {
+            const resp = await fetch(`${API_BASE}/getFolderDetails?folderId=${folderId}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (data.status === 'ok' && data.data) {
+                return { success: true, files: data.data.contents || [] };
+            } else {
+                throw new Error(data.status || 'Lỗi không xác định');
+            }
+        } catch (err) {
+            console.error(err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    // Hiển thị danh sách file
+    function renderFiles(files) {
+        if (!files || files.length === 0) {
+            fileList.innerHTML = `<li class="empty">📭 Chưa có file nào</li>`;
+            return;
+        }
+        let html = '';
+        files.forEach(f => {
+            const sizeMB = (f.size / 1024 / 1024).toFixed(1);
+            const icon = f.mimetype?.startsWith('image/') ? '🖼️' :
+                         (f.name.endsWith('.pdf') ? '📄' : '📁');
+            const link = f.link || `https://gofile.io/d/${currentFolderId}/file/${f.fileId}`;
+            html += `
+                <li class="file-item">
+                    <div class="file-info">
+                        <span>${icon}</span>
+                        <div>
+                            <span class="file-name">${f.name}</span>
+                            <span class="file-size">${sizeMB} MB</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${link}" target="_blank" class="download">⬇️ Tải</a>
+                        <button class="copy" onclick="copyLink('${link}')">📋 Copy link</button>
+                    </div>
+                </li>
+            `;
+        });
+        fileList.innerHTML = html;
+    }
+
+    window.copyLink = function(link) {
+        navigator.clipboard.writeText(link).then(() => {
+            alert('✅ Đã sao chép link tải!');
+        }).catch(() => {
+            const input = document.createElement('input');
+            input.value = link;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert('✅ Đã sao chép link tải!');
+        });
+    };
+
+    async function refreshFolder() {
+        if (!currentFolderId) {
+            hideInfo();
+            renderFiles([]);
+            showMsg('Vui lòng nhập mã kho hoặc tạo mới.', '');
+            return;
+        }
+        showMsg('⏳ Đang tải danh sách...', '');
+        const result = await fetchFiles(currentFolderId);
+        if (!result.success) {
+            showMsg(`❌ Lỗi: ${result.error}`, 'error');
+            renderFiles([]);
+            return;
+        }
+        showMsg('', '');
+        const files = result.files;
+        const count = files.length;
+        renderFiles(files);
+        const link = `https://gofile.io/d/${currentFolderId}`;
+        showInfo(`
+            <div class="flex">
+                <span><strong>📂 Mã kho:</strong> ${currentFolderId}</span>
+                <span class="badge">${count} file</span>
+                <button class="btn btn-warning" style="padding:4px 12px; font-size:13px;" onclick="copyLink('${link}')">📋 Copy link kho</button>
+                <a href="${link}" target="_blank" class="btn btn-success" style="padding:4px 12px; font-size:13px; text-decoration:none;">🔗 Mở trên GoFile</a>
+            </div>
+        `);
+        manualNote.style.display = 'none';
+    }
+
+    // Tạo folder mới - thử cả POST và GET
+    async function createFolder() {
+        try {
+            showMsg('⏳ Đang tạo kho mới...', '');
+            // Thử POST trước
+            let resp = await fetch(`${API_BASE}/createFolder`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) {
+                // Nếu POST không được, thử GET
+                resp = await fetch(`${API_BASE}/createFolder?format=json`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            }
+            const data = await resp.json();
+            if (data.status === 'ok' && data.data && data.data.folderId) {
+                const folderId = data.data.folderId;
+                currentFolderId = folderId;
+                folderInput.value = folderId;
+                await refreshFolder();
+                showMsg('✅ Tạo kho thành công!', '');
+                manualNote.style.display = 'none';
+                return true;
+            } else {
+                throw new Error(data.status || 'Tạo folder thất bại');
+            }
+        } catch (err) {
+            showMsg(`❌ Lỗi tạo kho: ${err.message}`, 'error');
+            // Hiện hướng dẫn tạo thủ công
+            manualNote.style.display = 'block';
+            return false;
+        }
+    }
+
+    // Upload file lên folder hiện tại
+    async function uploadFiles(files) {
+        if (!currentFolderId) {
+            showMsg('❌ Vui lòng nhập mã kho hoặc tạo mới trước khi upload.', 'error');
+            return;
+        }
+        // Kiểm tra dung lượng từng file (GoFile cho phép tới 20GB)
+        for (const f of files) {
+            if (f.size > 20 * 1024 * 1024 * 1024) {
+                showMsg(`❌ File ${f.name} vượt quá 20GB (giới hạn của GoFile).`, 'error');
+                return;
+            }
+        }
+
+        showMsg('⏳ Đang upload...', '');
+        let successCount = 0;
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folderId', currentFolderId);
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', `${API_BASE}/uploadFile`, true);
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const percent = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = percent + '%';
+                            progressWrap.style.display = 'block';
+                        }
+                    };
+                    xhr.onload = () => {
+                        progressWrap.style.display = 'none';
+                        if (xhr.status === 200) {
+                            try {
+                                const json = JSON.parse(xhr.responseText);
+                                if (json.status === 'ok') {
+                                    successCount++;
+                                    resolve();
+                                } else {
+                                    reject(new Error(json.status || 'Upload thất bại'));
+                                }
+                            } catch(e) { reject(new Error('Phản hồi không hợp lệ')); }
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}`));
+                        }
+                    };
+                    xhr.onerror = () => {
+                        progressWrap.style.display = 'none';
+                        reject(new Error('Lỗi kết nối'));
+                    };
+                    xhr.send(formData);
+                });
+                showMsg(`✅ Upload thành công: ${file.name}`, '');
+            } catch (err) {
+                showMsg(`❌ Lỗi upload ${file.name}: ${err.message}`, 'error');
+                break;
+            }
+        }
+        await refreshFolder();
+    }
+
+    // Sự kiện
+    enterBtn.addEventListener('click', async () => {
+        const id = folderInput.value.trim();
+        if (!id) {
+            showMsg('❌ Vui lòng nhập mã kho.', 'error');
+            return;
+        }
+        currentFolderId = id;
+        await refreshFolder();
+        manualNote.style.display = 'none';
+    });
+
+    createBtn.addEventListener('click', async () => {
+        await createFolder();
+    });
+
+    folderInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') enterBtn.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadFiles(e.target.files);
+        }
+        e.target.value = '';
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#667eea';
+        dropZone.style.background = '#edf2f7';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#cbd5e0';
+        dropZone.style.background = '#f7fafc';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e0';
+        dropZone.style.background = '#f7fafc';
+        if (e.dataTransfer.files.length > 0) {
+            uploadFiles(e.dataTransfer.files);
+        }
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Khi load trang, thử tạo kho tự động
+    window.addEventListener('load', async () => {
+        await createFolder();
+    });
+</script>
+</body>
+</html>
