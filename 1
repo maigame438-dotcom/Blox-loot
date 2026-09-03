@@ -1,62 +1,100 @@
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "PetGUI"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+local pets = ReplicatedStorage:WaitForChild("Pets")
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.fromOffset(100, 50)
-button.Position = UDim2.new(0, 20, 0.5, 0)
-button.Text = "🐾 PET"
-button.TextScaled = true
-button.BackgroundTransparency = 0
-button.Parent = gui
+local equippedPets = {}
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = button
+Players.PlayerAdded:Connect(function(player)
 
-local menu = Instance.new("Frame")
-menu.Size = UDim2.fromOffset(330, 300)
-menu.Position = UDim2.new(0.5, -165, 0.5, -150)
-menu.Visible = false
-menu.Parent = gui
+	player.CharacterAdded:Connect(function(character)
 
-local menuCorner = Instance.new("UICorner")
-menuCorner.CornerRadius = UDim.new(0, 15)
-menuCorner.Parent = menu
+		task.wait(1)
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 55)
-title.BackgroundTransparency = 1
-title.Text = "🐾 PET INVENTORY"
-title.TextScaled = true
-title.Parent = menu
+		local template = pets:FindFirstChild("Pet")
+		if not template then
+			warn("Không tìm thấy Pet!")
+			return
+		end
 
-local pet = Instance.new("TextButton")
-pet.Size = UDim2.new(1, -30, 0, 90)
-pet.Position = UDim2.fromOffset(15, 70)
-pet.Text = "🐉 Dragon\n⭐ Legendary\n⚡ Power: 10"
-pet.TextScaled = true
-pet.Parent = menu
+		-- Xóa Pet cũ
+		local old = workspace:FindFirstChild(player.Name .. "_Pet")
+		if old then
+			old:Destroy()
+		end
 
-local equip = Instance.new("TextButton")
-equip.Size = UDim2.new(1, -60, 0, 55)
-equip.Position = UDim2.new(0, 30, 1, -75)
-equip.Text = "EQUIP"
-equip.TextScaled = true
-equip.Parent = menu
+		-- Clone Pet
+		local pet = template:Clone()
+		pet.Name = player.Name .. "_Pet"
+		pet.Parent = workspace
 
-button.MouseButton1Click:Connect(function()
-	menu.Visible = not menu.Visible
+		local root =
+			pet.PrimaryPart
+			or pet:FindFirstChild("Body")
+			or pet:FindFirstChildWhichIsA("BasePart")
+
+		if not root then
+			warn("Pet không có Part!")
+			pet:Destroy()
+			return
+		end
+
+		pet.PrimaryPart = root
+
+		-- Tắt va chạm
+		for _, obj in ipairs(pet:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				obj.CanCollide = false
+				obj.Anchored = true
+			end
+		end
+
+		equippedPets[player] = pet
+
+	end)
+
 end)
 
-pet.MouseButton1Click:Connect(function()
-	pet.Text = "✅ 🐉 Dragon\n⭐ Legendary\n⚡ Power: 10"
+Players.PlayerRemoving:Connect(function(player)
+
+	if equippedPets[player] then
+		equippedPets[player]:Destroy()
+		equippedPets[player] = nil
+	end
+
 end)
 
-equip.MouseButton1Click:Connect(function()
-	equip.Text = "✅ EQUIPPED"
+-- Cho Pet bay theo người chơi
+RunService.Heartbeat:Connect(function()
+
+	for player, pet in pairs(equippedPets) do
+
+		if not pet or not pet.Parent then
+			continue
+		end
+
+		local character = player.Character
+		if not character then
+			continue
+		end
+
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			continue
+		end
+
+		-- Vị trí phía sau bên phải
+		local target =
+			hrp.CFrame
+			* CFrame.new(3, 1.5, 3)
+
+		local current = pet:GetPivot()
+
+		pet:PivotTo(
+			current:Lerp(target, 0.12)
+		)
+
+	end
+
 end)
