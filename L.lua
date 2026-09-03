@@ -1,406 +1,462 @@
+repeat task.wait() until game:IsLoaded()
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
--- Cài đặt thông số
 local MOVE_SPEED = 180 
-local BASE_MENU_HEIGHT = 180 -- Đã tăng để chứa thanh Quản lý File
-local MAX_MENU_HEIGHT = 450
-local ITEM_HEIGHT = 45
-
 local gameId = tostring(game.PlaceId)
-local locations = {}
+
+-- Dữ liệu lưu trữ
+local masterFileName = "TPMenu_Master_" .. gameId .. ".json"
+local savedFiles = {} 
+local currentFile = nil
+local currentLocations = {}
 local currentMode = "Fast"
 
 ---------------------------------------------
--- HÀM LƯU & TẢI TỆP TIN (CONFIG SYSTEM)
+-- HỆ THỐNG QUẢN LÝ TỆP (FILE SYSTEM)
 ---------------------------------------------
-local function getFilePath(fileName)
-    -- Lọc ký tự đặc biệt để tên file không bị lỗi hệ thống
-    local safeName = string.gsub(fileName, "[^%w%_]", "")
-    if safeName == "" then safeName = "Default" end
-    return "TPMenu_" .. gameId .. "_" .. safeName .. ".json"
+local function loadMaster()
+    if readfile and isfile and isfile(masterFileName) then
+        local s, r = pcall(function() return HttpService:JSONDecode(readfile(masterFileName)) end)
+        if s and type(r) == "table" then savedFiles = r end
+    end
 end
 
-local function saveConfig(fileName)
+local function saveMaster()
     if writefile then
-        local dataToSave = {}
-        for _, loc in ipairs(locations) do
-            table.insert(dataToSave, {Name = loc.Name, CFrame = {loc.CFrame:GetComponents()}})
-        end
-        writefile(getFilePath(fileName), HttpService:JSONEncode(dataToSave))
-        return true
+        writefile(masterFileName, HttpService:JSONEncode(savedFiles))
     end
-    return false
 end
 
-local function loadConfig(fileName)
+local function getFilePath(fileName)
+    local safeName = string.gsub(fileName, "[^%w%_]", "")
+    return "TPMenu_Data_" .. gameId .. "_" .. safeName .. ".json"
+end
+
+local function loadFileData(fileName)
     local path = getFilePath(fileName)
+    currentLocations = {}
     if readfile and isfile and isfile(path) then
-        local success, result = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
-        if success and type(result) == "table" then
-            locations = {}
-            for _, locData in ipairs(result) do
-                table.insert(locations, {Name = locData.Name, CFrame = CFrame.new(unpack(locData.CFrame))})
+        local s, r = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
+        if s and type(r) == "table" then
+            for _, loc in ipairs(r) do
+                table.insert(currentLocations, {Name = loc.Name, CFrame = CFrame.new(unpack(loc.CFrame))})
             end
-            return true
         end
     end
-    return false
+end
+
+local function saveFileData()
+    if not currentFile or not writefile then return end
+    local data = {}
+    for _, loc in ipairs(currentLocations) do
+        table.insert(data, {Name = loc.Name, CFrame = {loc.CFrame:GetComponents()}})
+    end
+    writefile(getFilePath(currentFile), HttpService:JSONEncode(data))
 end
 
 ---------------------------------------------
--- TẠO GUI CHÍNH
+-- KHỞI TẠO GUI CHÍNH
 ---------------------------------------------
-local guiParent = gethui and gethui() or game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
-if guiParent:FindFirstChild("MobileTeleportMenuV3") then guiParent.MobileTeleportMenuV3:Destroy() end
+local guiParent
+local s, core = pcall(function() return game:GetService("CoreGui") end)
+guiParent = gethui and gethui() or (s and core) or player:WaitForChild("PlayerGui")
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MobileTeleportMenuV3"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = guiParent
+if guiParent:FindFirstChild("MobileTP_MasterUI") then 
+    guiParent.MobileTP_MasterUI:Destroy() 
+end
 
--- Nút Bật/Tắt
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 50, 0, 50)
-toggleButton.Position = UDim2.new(0, 15, 0.5, -25)
-toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-toggleButton.Text = "🚀"
-toggleButton.TextSize = 24
-toggleButton.Parent = screenGui
-Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", toggleButton).Color = Color3.fromRGB(80, 80, 90)
+local screen = Instance.new("ScreenGui")
+screen.Name = "MobileTP_MasterUI"
+screen.ResetOnSpawn = false
+screen.Parent = guiParent
 
--- Khung Menu
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 290, 0, BASE_MENU_HEIGHT)
-mainFrame.Position = UDim2.new(0.5, -145, 0.5, -150)
-mainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
-mainFrame.Visible = false
-mainFrame.Active = true
-mainFrame.ClipsDescendants = true
-mainFrame.Parent = screenGui
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
-Instance.new("UIStroke", mainFrame).Color = Color3.fromRGB(45, 45, 55)
-
--- Top Bar
-local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1, 0, 0, 40)
-topBar.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-topBar.Parent = mainFrame
-Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 12)
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(0.7, 0, 1, 0)
-title.Position = UDim2.new(0.04, 0, 0, 0)
-title.Text = "Teleport Menu (Tệp)"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 14
-title.TextColor3 = Color3.fromRGB(240, 240, 240)
-title.BackgroundTransparency = 1
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = topBar
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -35, 0.5, -15)
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 14
-closeBtn.Parent = topBar
-
--- Chế Độ Di Chuyển
-local modeContainer = Instance.new("Frame")
-modeContainer.Size = UDim2.new(0.9, 0, 0, 32)
-modeContainer.Position = UDim2.new(0.05, 0, 0, 48)
-modeContainer.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
-modeContainer.Parent = mainFrame
-Instance.new("UICorner", modeContainer).CornerRadius = UDim.new(0, 8)
-
-local modeFastBtn = Instance.new("TextButton")
-modeFastBtn.Size = UDim2.new(0.49, 0, 0.85, 0)
-modeFastBtn.Position = UDim2.new(0.01, 0, 0.075, 0)
-modeFastBtn.Text = "🚀 Bay Mượt"
-modeFastBtn.Font = Enum.Font.GothamMedium
-modeFastBtn.TextSize = 12
-modeFastBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-modeFastBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-modeFastBtn.Parent = modeContainer
-Instance.new("UICorner", modeFastBtn).CornerRadius = UDim.new(0, 6)
-
-local modeInstantBtn = Instance.new("TextButton")
-modeInstantBtn.Size = UDim2.new(0.49, 0, 0.85, 0)
-modeInstantBtn.Position = UDim2.new(0.5, 0, 0.075, 0)
-modeInstantBtn.Text = "⚡ TP Tức Thì"
-modeInstantBtn.Font = Enum.Font.GothamMedium
-modeInstantBtn.TextSize = 12
-modeInstantBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-modeInstantBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-modeInstantBtn.Parent = modeContainer
-Instance.new("UICorner", modeInstantBtn).CornerRadius = UDim.new(0, 6)
-
--- Hệ thống Quản Lý Tệp (Mới)
-local fileContainer = Instance.new("Frame")
-fileContainer.Size = UDim2.new(0.9, 0, 0, 32)
-fileContainer.Position = UDim2.new(0.05, 0, 0, 88)
-fileContainer.BackgroundTransparency = 1
-fileContainer.Parent = mainFrame
-
-local fileNameBox = Instance.new("TextBox")
-fileNameBox.Size = UDim2.new(0.5, 0, 1, 0)
-fileNameBox.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
-fileNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-fileNameBox.PlaceholderText = "Nhập tên tệp..."
-fileNameBox.Font = Enum.Font.Gotham
-fileNameBox.TextSize = 12
-fileNameBox.Text = "MacDinh"
-fileNameBox.Parent = fileContainer
-Instance.new("UICorner", fileNameBox).CornerRadius = UDim.new(0, 6)
-
-local fileSaveBtn = Instance.new("TextButton")
-fileSaveBtn.Size = UDim2.new(0.23, 0, 1, 0)
-fileSaveBtn.Position = UDim2.new(0.53, 0, 0, 0)
-fileSaveBtn.Text = "💾 Lưu"
-fileSaveBtn.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
-fileSaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-fileSaveBtn.Font = Enum.Font.GothamBold
-fileSaveBtn.TextSize = 11
-fileSaveBtn.Parent = fileContainer
-Instance.new("UICorner", fileSaveBtn).CornerRadius = UDim.new(0, 6)
-
-local fileLoadBtn = Instance.new("TextButton")
-fileLoadBtn.Size = UDim2.new(0.22, 0, 1, 0)
-fileLoadBtn.Position = UDim2.new(0.78, 0, 0, 0)
-fileLoadBtn.Text = "📂 Tải"
-fileLoadBtn.BackgroundColor3 = Color3.fromRGB(180, 140, 50)
-fileLoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-fileLoadBtn.Font = Enum.Font.GothamBold
-fileLoadBtn.TextSize = 11
-fileLoadBtn.Parent = fileContainer
-Instance.new("UICorner", fileLoadBtn).CornerRadius = UDim.new(0, 6)
-
--- Nút Thêm Vị Trí Hiện Tại
-local addLocationBtn = Instance.new("TextButton")
-addLocationBtn.Size = UDim2.new(0.9, 0, 0, 36)
-addLocationBtn.Position = UDim2.new(0.05, 0, 0, 128)
-addLocationBtn.Text = "+ Thêm Vị Trí Đang Đứng"
-addLocationBtn.Font = Enum.Font.GothamBold
-addLocationBtn.TextSize = 13
-addLocationBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-addLocationBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-addLocationBtn.Parent = mainFrame
-Instance.new("UICorner", addLocationBtn).CornerRadius = UDim.new(0, 8)
-
--- Khung Cuộn Danh Sách
-local scrollFrame = Instance.new("ScrollingFrame")
-scrollFrame.Size = UDim2.new(0.9, 0, 1, -175)
-scrollFrame.Position = UDim2.new(0.05, 0, 0, 170)
-scrollFrame.BackgroundTransparency = 1
-scrollFrame.BorderSizePixel = 0
-scrollFrame.ScrollBarThickness = 4
-scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-scrollFrame.Parent = mainFrame
-
-local listLayout = Instance.new("UIListLayout")
-listLayout.Parent = scrollFrame
-listLayout.Padding = UDim.new(0, 6)
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+-- Nút Kích hoạt nổi (Kéo thả được)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Text = "🚀"
+toggleBtn.TextSize = 20
+toggleBtn.Parent = screen
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", toggleBtn).Color = Color3.fromRGB(50, 50, 50)
 
 ---------------------------------------------
--- UI CẬP NHẬT
+-- TẠO STYLE CHUNG (Tối giản / Dark Mode)
 ---------------------------------------------
-local function updateUI()
-    for _, child in pairs(scrollFrame:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+local function createStyleWindow(name, size, pos)
+    local frame = Instance.new("Frame")
+    frame.Name = name
+    frame.Size = size
+    frame.Position = pos
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.Visible = false
+    frame.Active = true
+    frame.ClipsDescendants = true
+    frame.Parent = screen
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = Color3.fromRGB(45, 45, 45)
+    stroke.Thickness = 1
+    
+    local topBar = Instance.new("Frame")
+    topBar.Size = UDim2.new(1, 0, 0, 30)
+    topBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    topBar.BorderSizePixel = 0
+    topBar.Parent = frame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.7, 0, 1, 0)
+    title.Position = UDim2.new(0.04, 0, 0, 0)
+    title.Font = Enum.Font.GothamMedium
+    title.TextSize = 13
+    title.TextColor3 = Color3.fromRGB(220, 220, 220)
+    title.BackgroundTransparency = 1
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = topBar
+    
+    return frame, topBar, title
+end
+
+---------------------------------------------
+-- GIAO DIỆN MAIN (Quản lý File)
+---------------------------------------------
+local mainUI, mainTop, mainTitle = createStyleWindow("MainMenu", UDim2.new(0, 300, 0, 320), UDim2.new(0.5, -150, 0.5, -160))
+mainTitle.Text = "Main - Quản Lý Tệp"
+
+local mainClose = Instance.new("TextButton")
+mainClose.Size = UDim2.new(0, 30, 1, 0)
+mainClose.Position = UDim2.new(1, -30, 0, 0)
+mainClose.Text = "✕"
+mainClose.TextColor3 = Color3.fromRGB(150, 150, 150)
+mainClose.BackgroundTransparency = 1
+mainClose.Parent = mainTop
+
+local addFileBox = Instance.new("TextBox")
+addFileBox.Size = UDim2.new(0.7, 0, 0, 35)
+addFileBox.Position = UDim2.new(0.05, 0, 0, 40)
+addFileBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+addFileBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+addFileBox.PlaceholderText = "Nhập tên tệp mới..."
+addFileBox.Font = Enum.Font.Gotham
+addFileBox.TextSize = 12
+addFileBox.Parent = mainUI
+Instance.new("UICorner", addFileBox).CornerRadius = UDim.new(0, 6)
+
+local addFileBtn = Instance.new("TextButton")
+addFileBtn.Size = UDim2.new(0.2, 0, 0, 35)
+addFileBtn.Position = UDim2.new(0.77, 0, 0, 40)
+addFileBtn.Text = "Tạo"
+addFileBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
+addFileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+addFileBtn.Font = Enum.Font.GothamBold
+addFileBtn.TextSize = 12
+addFileBtn.Parent = mainUI
+Instance.new("UICorner", addFileBtn).CornerRadius = UDim.new(0, 6)
+
+local fileScroll = Instance.new("ScrollingFrame")
+fileScroll.Size = UDim2.new(0.9, 0, 1, -95)
+fileScroll.Position = UDim2.new(0.05, 0, 0, 85)
+fileScroll.BackgroundTransparency = 1
+fileScroll.BorderSizePixel = 0
+fileScroll.ScrollBarThickness = 3
+fileScroll.Parent = mainUI
+local fileListLayout = Instance.new("UIListLayout", fileScroll)
+fileListLayout.Padding = UDim.new(0, 5)
+
+---------------------------------------------
+-- GIAO DIỆN SUBMENU (Điểm dịch chuyển)
+---------------------------------------------
+local subUI, subTop, subTitle = createStyleWindow("SubMenu", UDim2.new(0, 280, 0, 360), UDim2.new(0.5, 160, 0.5, -160))
+
+local subMinimize = Instance.new("TextButton")
+subMinimize.Size = UDim2.new(0, 30, 1, 0)
+subMinimize.Position = UDim2.new(1, -60, 0, 0)
+subMinimize.Text = "—"
+subMinimize.TextColor3 = Color3.fromRGB(150, 150, 150)
+subMinimize.BackgroundTransparency = 1
+subMinimize.Parent = subTop
+
+local subClose = Instance.new("TextButton")
+subClose.Size = UDim2.new(0, 30, 1, 0)
+subClose.Position = UDim2.new(1, -30, 0, 0)
+subClose.Text = "✕"
+subClose.TextColor3 = Color3.fromRGB(150, 150, 150)
+subClose.BackgroundTransparency = 1
+subClose.Parent = subTop
+
+-- Content bên trong SubMenu
+local subContent = Instance.new("Frame")
+subContent.Size = UDim2.new(1, 0, 1, -30)
+subContent.Position = UDim2.new(0, 0, 0, 30)
+subContent.BackgroundTransparency = 1
+subContent.Parent = subUI
+
+local modeBtn = Instance.new("TextButton")
+modeBtn.Size = UDim2.new(0.9, 0, 0, 30)
+modeBtn.Position = UDim2.new(0.05, 0, 0, 10)
+modeBtn.Text = "Chế độ: Bay Tốc Độ (Fast)"
+modeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+modeBtn.Font = Enum.Font.GothamMedium
+modeBtn.TextSize = 12
+modeBtn.Parent = subContent
+Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 6)
+
+local addLocBtn = Instance.new("TextButton")
+addLocBtn.Size = UDim2.new(0.9, 0, 0, 35)
+addLocBtn.Position = UDim2.new(0.05, 0, 0, 48)
+addLocBtn.Text = "+ Lưu Vị Trí Đang Đứng"
+addLocBtn.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+addLocBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+addLocBtn.Font = Enum.Font.GothamBold
+addLocBtn.TextSize = 12
+addLocBtn.Parent = subContent
+Instance.new("UICorner", addLocBtn).CornerRadius = UDim.new(0, 6)
+
+local locScroll = Instance.new("ScrollingFrame")
+locScroll.Size = UDim2.new(0.9, 0, 1, -100)
+locScroll.Position = UDim2.new(0.05, 0, 0, 90)
+locScroll.BackgroundTransparency = 1
+locScroll.BorderSizePixel = 0
+locScroll.ScrollBarThickness = 3
+locScroll.Parent = subContent
+local locListLayout = Instance.new("UIListLayout", locScroll)
+locListLayout.Padding = UDim.new(0, 5)
+
+---------------------------------------------
+-- LOGIC & CHỨC NĂNG CẬP NHẬT GIAO DIỆN
+---------------------------------------------
+local isMinimized = false
+
+local function updateLocUI()
+    for _, child in pairs(locScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    for index, loc in ipairs(currentLocations) do
+        local item = Instance.new("Frame", locScroll)
+        item.Size = UDim2.new(1, -5, 0, 35)
+        item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 5)
+
+        local name = Instance.new("TextLabel", item)
+        name.Size = UDim2.new(0.5, 0, 1, 0)
+        name.Position = UDim2.new(0.05, 0, 0, 0)
+        name.Text = loc.Name
+        name.BackgroundTransparency = 1
+        name.TextColor3 = Color3.fromRGB(220, 220, 220)
+        name.Font = Enum.Font.Gotham
+        name.TextSize = 12
+        name.TextXAlignment = Enum.TextXAlignment.Left
+
+        local tp = Instance.new("TextButton", item)
+        tp.Size = UDim2.new(0.25, 0, 0.7, 0)
+        tp.Position = UDim2.new(0.55, 0, 0.15, 0)
+        tp.Text = "Đến"
+        tp.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+        tp.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Instance.new("UICorner", tp).CornerRadius = UDim.new(0, 4)
+
+        local del = Instance.new("TextButton", item)
+        del.Size = UDim2.new(0.12, 0, 0.7, 0)
+        del.Position = UDim2.new(0.83, 0, 0.15, 0)
+        del.Text = "✕"
+        del.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+        del.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Instance.new("UICorner", del).CornerRadius = UDim.new(0, 4)
+
+        tp.Activated:Connect(function() _G.TPPlayer(loc.CFrame) end)
+        del.Activated:Connect(function()
+            table.remove(currentLocations, index)
+            saveFileData() updateLocUI()
+        end)
     end
+    locScroll.CanvasSize = UDim2.new(0, 0, 0, #currentLocations * 40)
+end
 
-    for index, locData in ipairs(locations) do
-        local itemFrame = Instance.new("Frame")
-        itemFrame.Size = UDim2.new(1, -6, 0, 40)
-        itemFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-        itemFrame.Parent = scrollFrame
-        Instance.new("UICorner", itemFrame).CornerRadius = UDim.new(0, 6)
+local function updateMainUI()
+    for _, child in pairs(fileScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    for index, fName in ipairs(savedFiles) do
+        local item = Instance.new("Frame", fileScroll)
+        item.Size = UDim2.new(1, -5, 0, 40)
+        item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 5)
 
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(0.5, 0, 1, 0)
-        nameLabel.Position = UDim2.new(0.04, 0, 0, 0)
-        nameLabel.Text = locData.Name
-        nameLabel.Font = Enum.Font.GothamMedium
-        nameLabel.TextSize = 13
-        nameLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.Parent = itemFrame
+        local name = Instance.new("TextLabel", item)
+        name.Size = UDim2.new(0.5, 0, 1, 0)
+        name.Position = UDim2.new(0.05, 0, 0, 0)
+        name.Text = "📁 " .. fName
+        name.BackgroundTransparency = 1
+        name.TextColor3 = Color3.fromRGB(220, 220, 220)
+        name.Font = Enum.Font.GothamMedium
+        name.TextSize = 13
+        name.TextXAlignment = Enum.TextXAlignment.Left
 
-        local tpBtn = Instance.new("TextButton")
-        tpBtn.Size = UDim2.new(0.28, 0, 0.7, 0)
-        tpBtn.Position = UDim2.new(0.55, 0, 0.15, 0)
-        tpBtn.Text = "Đến"
-        tpBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        tpBtn.Font = Enum.Font.GothamBold
-        tpBtn.TextSize = 12
-        tpBtn.Parent = itemFrame
-        Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 5)
+        local openBtn = Instance.new("TextButton", item)
+        openBtn.Size = UDim2.new(0.25, 0, 0.7, 0)
+        openBtn.Position = UDim2.new(0.55, 0, 0.15, 0)
+        openBtn.Text = "Mở"
+        openBtn.BackgroundColor3 = Color3.fromRGB(180, 140, 50)
+        openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 4)
 
-        local delBtn = Instance.new("TextButton")
+        local delBtn = Instance.new("TextButton", item)
         delBtn.Size = UDim2.new(0.12, 0, 0.7, 0)
-        delBtn.Position = UDim2.new(0.85, 0, 0.15, 0)
+        delBtn.Position = UDim2.new(0.83, 0, 0.15, 0)
         delBtn.Text = "✕"
-        delBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+        delBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
         delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        delBtn.Font = Enum.Font.GothamBold
-        delBtn.TextSize = 12
-        delBtn.Parent = itemFrame
-        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 5)
+        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
 
-        tpBtn.Activated:Connect(function()
-            _G.TeleportPlayer(locData.CFrame)
+        openBtn.Activated:Connect(function()
+            currentFile = fName
+            subTitle.Text = "Tệp: " .. fName
+            loadFileData(fName)
+            updateLocUI()
+            subUI.Visible = true
+            if isMinimized then subMinimize.Activated:Fire() end
         end)
-
+        
         delBtn.Activated:Connect(function()
-            table.remove(locations, index)
-            updateUI()
+            if delfile and isfile and isfile(getFilePath(fName)) then delfile(getFilePath(fName)) end
+            table.remove(savedFiles, index)
+            saveMaster() updateMainUI()
+            if currentFile == fName then subUI.Visible = false currentFile = nil end
         end)
     end
-
-    local count = #locations
-    local targetHeight = BASE_MENU_HEIGHT + (count * ITEM_HEIGHT)
-    local finalHeight = math.min(targetHeight, MAX_MENU_HEIGHT)
-    TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 290, 0, finalHeight)
-    }):Play()
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * ITEM_HEIGHT)
+    fileScroll.CanvasSize = UDim2.new(0, 0, 0, #savedFiles * 45)
 end
 
 ---------------------------------------------
--- TƯƠNG TÁC NÚT LOGIC
+-- TƯƠNG TÁC NÚT CƠ BẢN
 ---------------------------------------------
-local function setMode(mode)
-    currentMode = mode
-    if mode == "Fast" then
-        modeFastBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-        modeFastBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        modeInstantBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-        modeInstantBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+addFileBtn.Activated:Connect(function()
+    local text = addFileBox.Text
+    if text ~= "" then
+        table.insert(savedFiles, text)
+        saveMaster()
+        updateMainUI()
+        addFileBox.Text = ""
+    end
+end)
+
+addLocBtn.Activated:Connect(function()
+    if not currentFile then return end
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        table.insert(currentLocations, {Name = "Điểm " .. (#currentLocations + 1), CFrame = root.CFrame})
+        saveFileData()
+        updateLocUI()
+    end
+end)
+
+modeBtn.Activated:Connect(function()
+    if currentMode == "Fast" then
+        currentMode = "Instant"
+        modeBtn.Text = "Chế độ: TP Tức Thì (TP)"
     else
-        modeInstantBtn.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
-        modeInstantBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        modeFastBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-        modeFastBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
-    end
-end
-modeFastBtn.Activated:Connect(function() setMode("Fast") end)
-modeInstantBtn.Activated:Connect(function() setMode("Instant") end)
-
-fileSaveBtn.Activated:Connect(function()
-    if saveConfig(fileNameBox.Text) then
-        fileSaveBtn.Text = "Đã Lưu!"
-        task.wait(1)
-        fileSaveBtn.Text = "💾 Lưu"
+        currentMode = "Fast"
+        modeBtn.Text = "Chế độ: Bay Tốc Độ (Fast)"
     end
 end)
 
-fileLoadBtn.Activated:Connect(function()
-    if loadConfig(fileNameBox.Text) then
-        updateUI()
-        fileLoadBtn.Text = "Đã Tải!"
+-- Thu gọn SubMenu
+subMinimize.Activated:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        TweenService:Create(subUI, TweenInfo.new(0.2), {Size = UDim2.new(0, 280, 0, 30)}):Play()
+        subContent.Visible = false
     else
-        fileLoadBtn.Text = "Lỗi!"
-    end
-    task.wait(1)
-    fileLoadBtn.Text = "📂 Tải"
-end)
-
-addLocationBtn.Activated:Connect(function()
-    local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        table.insert(locations, {
-            Name = "Điểm " .. (#locations + 1),
-            CFrame = rootPart.CFrame
-        })
-        updateUI()
+        TweenService:Create(subUI, TweenInfo.new(0.2), {Size = UDim2.new(0, 280, 0, 360)}):Play()
+        subContent.Visible = true
     end
 end)
 
+mainClose.Activated:Connect(function() mainUI.Visible = false end)
+subClose.Activated:Connect(function() subUI.Visible = false currentFile = nil end)
+
 ---------------------------------------------
--- LOGIC DI CHUYỂN
+-- DI CHUYỂN CHỐNG ANTI-CHEAT
 ---------------------------------------------
-_G.TeleportPlayer = function(targetCFrame)
+_G.TPPlayer = function(targetCFrame)
     local char = player.Character
-    local rootPart = char and char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if not rootPart or not humanoid then return end
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then return end
 
     if currentMode == "Instant" then
         for i = 1, 3 do
-            rootPart.CFrame = targetCFrame
-            rootPart.AssemblyLinearVelocity = Vector3.zero
-            rootPart.AssemblyAngularVelocity = Vector3.zero
-            task.wait(0.03)
+            root.CFrame = targetCFrame
+            root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+            task.wait(0.05)
         end
     else
         local runAnim = Instance.new("Animation")
         runAnim.AnimationId = "rbxassetid://180426354"
-        local track = (humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)):LoadAnimation(runAnim)
+        local track = (hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)):LoadAnimation(runAnim)
         track:Play()
 
-        local timeToTake = math.max((rootPart.Position - targetCFrame.Position).Magnitude / MOVE_SPEED, 0.15)
-        rootPart.AssemblyLinearVelocity = Vector3.zero
-        rootPart.AssemblyAngularVelocity = Vector3.zero
+        local timeToTake = math.max((root.Position - targetCFrame.Position).Magnitude / MOVE_SPEED, 0.15)
+        root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
 
-        local tween = TweenService:Create(rootPart, TweenInfo.new(timeToTake, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
-        rootPart.Anchored = true
+        local tween = TweenService:Create(root, TweenInfo.new(timeToTake, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        root.Anchored = true
         tween:Play()
 
         tween.Completed:Connect(function()
             track:Stop() runAnim:Destroy()
             for i = 1, 5 do
-                rootPart.CFrame = targetCFrame
-                rootPart.AssemblyLinearVelocity = Vector3.zero
-                rootPart.AssemblyAngularVelocity = Vector3.zero
-                task.wait(0.04)
+                root.CFrame = targetCFrame
+                root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+                task.wait(0.05)
             end
-            rootPart.Anchored = false
+            root.Anchored = false
         end)
     end
 end
 
 ---------------------------------------------
--- DRAG THẢ GUI
+-- HỆ THỐNG KÉO THẢ GIAO DIỆN
 ---------------------------------------------
-local function enableDrag(dragFrame, handleFrame)
-    local dragging, dragInput, dragStart, startPos
-    (handleFrame or dragFrame).InputBegan:Connect(function(input)
+local function makeDraggable(frame, topBar)
+    local dragToggle, dragStart, startPos
+    topBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true dragStart = input.Position startPos = dragFrame.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+            dragToggle = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+            end)
         end
     end)
-    (handleFrame or dragFrame).InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-    end)
     UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
+        if dragToggle and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
             local delta = input.Position - dragStart
-            dragFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 end
 
+makeDraggable(mainUI, mainTop)
+makeDraggable(subUI, subTop)
+
+-- Nút nổi bật tắt Main Menu
 local btnDragged, btnDragStart = false, nil
-toggleButton.InputBegan:Connect(function(input)
+toggleBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        btnDragged = false btnDragStart = input.Position
+        btnDragged = false 
+        btnDragStart = input.Position
     end
 end)
-toggleButton.InputEnded:Connect(function(input)
+toggleBtn.InputEnded:Connect(function(input)
     if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not btnDragged then
-        mainFrame.Visible = not mainFrame.Visible
+        mainUI.Visible = not mainUI.Visible
     end
 end)
 UserInputService.InputChanged:Connect(function(input)
@@ -408,11 +464,10 @@ UserInputService.InputChanged:Connect(function(input)
         if (input.Position - btnDragStart).Magnitude > 5 then btnDragged = true end
     end
 end)
+makeDraggable(toggleBtn, toggleBtn)
 
-enableDrag(toggleButton)
-enableDrag(mainFrame, topBar)
-closeBtn.Activated:Connect(function() mainFrame.Visible = false end)
-
--- Khởi động tải tệp mặc định
-loadConfig("MacDinh")
-updateUI()
+---------------------------------------------
+-- KHỞI ĐỘNG
+---------------------------------------------
+loadMaster()
+updateMainUI()
