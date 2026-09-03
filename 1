@@ -1,45 +1,45 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
-local pet = workspace:WaitForChild("Pet")
+local petsFolder = ReplicatedStorage:WaitForChild("Pets")
+local equipEvent = ReplicatedStorage:WaitForChild("EquipPet")
 
--- Chọn Part chính của Pet
-local root = pet.PrimaryPart or pet:FindFirstChild("Body") or pet:FindFirstChildWhichIsA("BasePart")
+local equipped = {}
 
-if not root then
-	warn("Pet chưa có Part/Body!")
-	return
-end
-
-pet.PrimaryPart = root
-
--- Cho toàn bộ Pet không va chạm
-for _, obj in ipairs(pet:GetDescendants()) do
-	if obj:IsA("BasePart") then
-		obj.Anchored = true
-		obj.CanCollide = false
-	end
-end
-
-local player = Players:GetPlayers()[1]
-
-RunService.Heartbeat:Connect(function()
-	if not player then
-		player = Players:GetPlayers()[1]
-	end
-
-	if not player then return end
-
+local function equipPet(player)
 	local character = player.Character
-	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not character then return end
 
-	if not hrp then return end
+	local oldPet = workspace:FindFirstChild(player.Name .. "_Pet")
+	if oldPet then
+		oldPet:Destroy()
+	end
 
-	-- Vị trí Pet phía sau người chơi
-	local target = hrp.CFrame * CFrame.new(3, 1.5, 3)
+	local template = petsFolder:FindFirstChild("Pet")
+	if not template then
+		warn("Không tìm thấy Pet trong ReplicatedStorage > Pets")
+		return
+	end
 
-	local current = pet:GetPivot()
-	local newCF = current:Lerp(target, 0.12)
+	local pet = template:Clone()
+	pet.Name = player.Name .. "_Pet"
+	pet.Parent = workspace
 
-	pet:PivotTo(newCF)
+	equipped[player] = pet
+
+	local root = pet.PrimaryPart
+		or pet:FindFirstChild("Body")
+		or pet:FindFirstChildWhichIsA("BasePart")
+
+	if root then
+		pet.PrimaryPart = root
+	end
+end
+
+equipEvent.OnServerEvent:Connect(function(player)
+	equipPet(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	equipped[player] = nil
 end)
