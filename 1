@@ -1,393 +1,1228 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kho file siêu lớn - GoFile</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 850px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-        h1 { text-align:center; margin-bottom:4px; color:#2d3748; }
-        .sub { text-align:center; color:#718096; margin-bottom:20px; font-size:14px; }
-        .row {
-            display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;
-        }
-        .row input {
-            flex:1; padding:12px 16px; border:2px solid #e2e8f0; border-radius:10px;
-            font-size:16px; outline:none; transition:0.2s; min-width:150px;
-        }
-        .row input:focus { border-color:#667eea; }
-        .btn {
-            background:#667eea; color:white; border:none; padding:12px 24px;
-            border-radius:10px; font-weight:600; cursor:pointer; transition:0.2s;
-            font-size:15px; white-space:nowrap;
-        }
-        .btn:hover { background:#5a67d8; transform:scale(1.02); }
-        .btn-success { background:#48bb78; }
-        .btn-success:hover { background:#38a169; }
-        .btn-warning { background:#ed8936; }
-        .btn-warning:hover { background:#dd6b20; }
-        .info-box {
-            background:#f0f4ff; padding:12px 16px; border-radius:10px;
-            margin:10px 0; color:#2b6cb0; font-size:14px; word-break:break-all;
-        }
-        .upload-area {
-            border:2px dashed #cbd5e0; border-radius:16px; padding:30px 20px;
-            text-align:center; cursor:pointer; transition:0.2s; background:#f7fafc;
-            margin:15px 0;
-        }
-        .upload-area:hover { border-color:#667eea; background:#edf2f7; }
-        .upload-area input { display:none; }
-        .upload-icon { font-size:40px; }
-        .upload-text { margin-top:8px; color:#4a5568; }
-        .upload-text span { color:#667eea; font-weight:bold; }
-        .progress { width:100%; height:6px; background:#e2e8f0; border-radius:6px; margin:10px 0; overflow:hidden; display:none; }
-        .progress-bar { height:100%; background:linear-gradient(90deg,#667eea,#764ba2); width:0%; transition:width 0.3s; }
-        .file-list { list-style:none; margin:15px 0; }
-        .file-item {
-            background:#f7fafc; padding:14px 18px; border-radius:12px; margin-bottom:8px;
-            display:flex; justify-content:space-between; align-items:center;
-            border:1px solid #e2e8f0; transition:0.2s; flex-wrap:wrap;
-        }
-        .file-item:hover { border-color:#667eea; background:#edf2f7; }
-        .file-info { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
-        .file-name { font-weight:500; color:#2d3748; word-break:break-all; }
-        .file-size { font-size:12px; color:#a0aec0; margin-left:8px; }
-        .file-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-        .file-actions a, .file-actions button {
-            background:#edf2f7; color:#2d3748; border:none; padding:6px 14px;
-            border-radius:6px; font-size:13px; cursor:pointer; transition:0.2s;
-            text-decoration:none; display:inline-block;
-        }
-        .file-actions a:hover, .file-actions button:hover { background:#e2e8f0; }
-        .file-actions .download { background:#c6f6d5; color:#276749; }
-        .file-actions .download:hover { background:#9ae6b4; }
-        .file-actions .copy { background:#fefcbf; color:#975a16; }
-        .file-actions .copy:hover { background:#f6e05e; }
-        .msg { text-align:center; margin:10px 0; font-weight:500; color:#48bb78; }
-        .msg.error { color:#fc8181; }
-        .footer { margin-top:20px; text-align:center; color:#a0aec0; font-size:12px; }
-        .empty { text-align:center; color:#a0aec0; padding:20px; }
-        .badge { background:#ebf8ff; color:#2b6cb0; padding:4px 12px; border-radius:20px; font-size:13px; }
-        .flex { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-        .manual-note { background:#fffbeb; border-left:4px solid #d69e2e; padding:12px 16px; border-radius:8px; margin:10px 0; color:#744210; font-size:14px; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>📦 Kho file siêu lớn</h1>
-    <p class="sub">Upload file >1GB, chia sẻ link cho người khác</p>
+--============================================================--
+-- UNIVERSAL FARM ESP V2
+-- MOBILE + PC
+-- SINGLE LOCALSCRIPT
+--============================================================--
 
-    <div class="row">
-        <input type="text" id="folderInput" placeholder="Nhập mã kho (folder ID)" value="">
-        <button id="enterBtn" class="btn">🔑 Vào kho</button>
-        <button id="createBtn" class="btn btn-success">🆕 Tạo kho mới</button>
-    </div>
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-    <div id="infoBox" class="info-box" style="display:none;"></div>
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-    <!-- Hướng dẫn tạo kho thủ công nếu API lỗi -->
-    <div id="manualNote" class="manual-note" style="display:none;">
-        <strong>⚠️ Không tạo được kho tự động?</strong> Hãy <a href="https://gofile.io/upload" target="_blank">tạo kho thủ công trên GoFile</a>, sau đó sao chép mã kho (trong URL) và dán vào ô trên.
-    </div>
+--============================================================--
+-- CONFIG
+-- ALL OFF BY DEFAULT
+--============================================================--
 
-    <div class="upload-area" id="dropZone">
-        <div class="upload-icon">📤</div>
-        <div class="upload-text"><span>Chọn file</span> hoặc kéo thả (không giới hạn dung lượng)</div>
-        <input type="file" id="fileInput" multiple>
-    </div>
-    <div class="progress" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+local Config = {
+    EggESP = false,
+    EggRank = false,
+    EggPet = false,
+    EggPrice = false,
+    EggDistance = false,
 
-    <ul class="file-list" id="fileList"><li class="empty">📭 Chưa có file nào</li></ul>
-    <div id="message" class="msg"></div>
-    <div class="footer">🔒 Dữ liệu lưu trên GoFile.io (tự động xóa sau 7 ngày không hoạt động)</div>
-</div>
+    MonsterESP = false,
+    NPCESP = false,
 
-<script>
-    // ------------------ Cấu hình ------------------
-    const API_BASE = 'https://api.gofile.io';
-    // ---------------------------------------------
+    ItemESP = false,
+    InteractableESP = false,
 
-    let currentFolderId = '';
+    ShowName = false,
+    ShowHP = false,
+    ShowDistance = false,
+    Highlight = false,
 
-    const folderInput = document.getElementById('folderInput');
-    const enterBtn = document.getElementById('enterBtn');
-    const createBtn = document.getElementById('createBtn');
-    const fileList = document.getElementById('fileList');
-    const message = document.getElementById('message');
-    const infoBox = document.getElementById('infoBox');
-    const manualNote = document.getElementById('manualNote');
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const progressWrap = document.getElementById('progressWrap');
-    const progressBar = document.getElementById('progressBar');
+    MoneyESP = false,
+    MoneyPerSecond = false,
 
-    function showMsg(text, type = '') {
-        message.textContent = text;
-        message.className = 'msg' + (type ? ' ' + type : '');
+    MaxDistance = 1000,
+
+    -- Performance
+    ScanPerFrame = 35,
+    ScanDelay = 0.03,
+    UpdateInterval = 0.12,
+}
+
+--============================================================--
+-- STORAGE
+--============================================================--
+
+local ESP = {}
+local Cache = {}
+local Queue = {}
+local QueueIndex = 1
+
+local ESPFolder = Instance.new("Folder")
+ESPFolder.Name = "UniversalFarmESP_V2"
+ESPFolder.Parent = Workspace
+
+--============================================================--
+-- BASIC FUNCTIONS
+--============================================================--
+
+local function getRoot(obj)
+    if not obj then
+        return nil
+    end
+
+    if obj:IsA("BasePart") then
+        return obj
+    end
+
+    if obj:IsA("Model") then
+        return obj.PrimaryPart
+            or obj:FindFirstChild("HumanoidRootPart")
+            or obj:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    if obj:IsA("Tool") then
+        return obj:FindFirstChild("Handle")
+            or obj:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    return obj:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function getDistance(obj)
+    local root = getRoot(obj)
+    local char = Player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not root or not hrp then
+        return math.huge
+    end
+
+    return (root.Position - hrp.Position).Magnitude
+end
+
+local function lower(v)
+    return string.lower(tostring(v or ""))
+end
+
+local function formatNumber(v)
+    v = tonumber(v)
+
+    if not v then
+        return "?"
+
+    elseif math.abs(v) >= 1e12 then
+        return string.format("%.2fT", v / 1e12)
+
+    elseif math.abs(v) >= 1e9 then
+        return string.format("%.2fB", v / 1e9)
+
+    elseif math.abs(v) >= 1e6 then
+        return string.format("%.2fM", v / 1e6)
+
+    elseif math.abs(v) >= 1e3 then
+        return string.format("%.2fK", v / 1e3)
+    end
+
+    return string.format("%.0f", v)
+end
+
+--============================================================--
+-- DATA READER
+--============================================================--
+
+local function getData(obj, names)
+
+    for _, name in ipairs(names) do
+
+        local attribute = obj:GetAttribute(name)
+
+        if attribute ~= nil then
+            return attribute
+        end
+
+        local child = obj:FindFirstChild(name, true)
+
+        if child and child:IsA("ValueBase") then
+            return child.Value
+        end
+    end
+
+    return nil
+end
+
+--============================================================--
+-- EGG DETECTION
+--============================================================--
+
+local EggWords = {
+    "egg",
+    "trung",
+    "eggbox",
+    "egg box",
+    "hatch",
+    "hatching",
+}
+
+local function isEgg(obj)
+
+    if not obj then
+        return false
+    end
+
+    local explicit = getData(obj, {
+        "IsEgg",
+        "Egg",
+        "EggType",
+        "EggName",
+        "Hatchable",
+        "IsHatchable",
+    })
+
+    if explicit ~= nil then
+
+        if typeof(explicit) == "boolean" then
+            return explicit
+        end
+
+        return true
+    end
+
+    local name = lower(obj.Name)
+
+    for _, word in ipairs(EggWords) do
+        if string.find(name, word, 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function getEggRank(obj)
+
+    local rank = getData(obj, {
+        "Rank",
+        "Rarity",
+        "RarityName",
+        "Tier",
+        "TierName",
+        "Grade",
+        "GradeName",
+        "EggRank",
+    })
+
+    if rank ~= nil then
+        return tostring(rank)
+    end
+
+    return "Unknown"
+end
+
+local function getEggPet(obj)
+
+    local pet = getData(obj, {
+        "Pet",
+        "PetName",
+        "PetType",
+        "HatchPet",
+        "Reward",
+        "RewardName",
+        "PossiblePet",
+    })
+
+    if pet ~= nil then
+        return tostring(pet)
+    end
+
+    return "Unknown"
+end
+
+local function getEggPrice(obj)
+
+    return getData(obj, {
+        "Price",
+        "Cost",
+        "EggPrice",
+        "BuyPrice",
+    })
+end
+
+--============================================================--
+-- INTERACTION
+--============================================================--
+
+local function hasInteraction(obj)
+
+    if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then
+        return true
+    end
+
+    if obj:FindFirstChildWhichIsA("ClickDetector", true) then
+        return true
+    end
+
+    if obj:FindFirstChildWhichIsA("TouchTransmitter", true) then
+        return true
+    end
+
+    return false
+end
+
+--============================================================--
+-- CLASSIFY
+--============================================================--
+
+local function classify(obj)
+
+    if not obj then
+        return nil
+    end
+
+    if obj == ESPFolder then
+        return nil
+    end
+
+    if Player.Character
+        and obj:IsDescendantOf(Player.Character) then
+        return nil
+    end
+
+    if isEgg(obj) then
+        return "Egg"
+    end
+
+    local humanoid = obj:FindFirstChildOfClass("Humanoid")
+
+    if humanoid then
+
+        if hasInteraction(obj) then
+            return "NPC"
+        end
+
+        return "Monster"
+    end
+
+    if hasInteraction(obj) then
+        return "Interactable"
+    end
+
+    if obj:IsA("Tool") then
+        return "Item"
+    end
+
+    return nil
+end
+
+--============================================================--
+-- GET LOGICAL OBJECT
+--============================================================--
+
+local function logicalObject(obj)
+
+    if obj:IsA("Model") then
+        return obj
+    end
+
+    if obj:IsA("Tool") then
+        return obj
+    end
+
+    if obj:IsA("BasePart") then
+
+        local parent = obj.Parent
+
+        if parent and parent:IsA("Model") then
+            return parent
+        end
+
+        return obj
+    end
+
+    return nil
+end
+
+--============================================================--
+-- COLOR
+--============================================================--
+
+local function eggColor(rank)
+
+    local r = lower(rank)
+
+    if string.find(r, "secret", 1, true) then
+        return Color3.fromRGB(255, 50, 50)
+
+    elseif string.find(r, "divine", 1, true) then
+        return Color3.fromRGB(255, 0, 255)
+
+    elseif string.find(r, "exclusive", 1, true) then
+        return Color3.fromRGB(255, 215, 0)
+
+    elseif string.find(r, "myth", 1, true) then
+        return Color3.fromRGB(255, 80, 0)
+
+    elseif string.find(r, "legend", 1, true) then
+        return Color3.fromRGB(255, 200, 0)
+
+    elseif string.find(r, "epic", 1, true) then
+        return Color3.fromRGB(180, 80, 255)
+
+    elseif string.find(r, "rare", 1, true) then
+        return Color3.fromRGB(60, 150, 255)
+
+    elseif string.find(r, "uncommon", 1, true) then
+        return Color3.fromRGB(60, 220, 100)
+    end
+
+    return Color3.new(1,1,1)
+end
+
+local function categoryColor(category, obj)
+
+    if category == "Egg" then
+        return eggColor(getEggRank(obj))
+    elseif category == "Monster" then
+        return Color3.fromRGB(255,70,70)
+    elseif category == "NPC" then
+        return Color3.fromRGB(80,180,255)
+    elseif category == "Interactable" then
+        return Color3.fromRGB(80,255,150)
+    elseif category == "Item" then
+        return Color3.fromRGB(255,220,60)
+    end
+
+    return Color3.new(1,1,1)
+end
+
+--============================================================--
+-- SHOULD SHOW
+--============================================================--
+
+local function enabled(category)
+
+    if category == "Egg" then
+        return Config.EggESP
+
+    elseif category == "Monster" then
+        return Config.MonsterESP
+
+    elseif category == "NPC" then
+        return Config.NPCESP
+
+    elseif category == "Item" then
+        return Config.ItemESP
+
+    elseif category == "Interactable" then
+        return Config.InteractableESP
+    end
+
+    return false
+end
+
+--============================================================--
+-- DESTROY ESP
+--============================================================--
+
+local function removeESP(obj)
+
+    local data = ESP[obj]
+
+    if not data then
+        return
+    end
+
+    if data.Gui then
+        data.Gui:Destroy()
+    end
+
+    if data.Highlight then
+        data.Highlight:Destroy()
+    end
+
+    ESP[obj] = nil
+end
+
+--============================================================--
+-- CREATE ESP
+--============================================================--
+
+local function createESP(obj, category)
+
+    if ESP[obj] then
+        return
+    end
+
+    if not enabled(category) then
+        return
+    end
+
+    local root = getRoot(obj)
+
+    if not root then
+        return
+    end
+
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "ESP"
+    gui.Adornee = root
+    gui.Size = UDim2.fromOffset(260, 130)
+    gui.StudsOffset = Vector3.new(0,3,0)
+    gui.AlwaysOnTop = true
+    gui.MaxDistance = Config.MaxDistance
+    gui.Parent = ESPFolder
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.fromScale(1,1)
+    label.TextColor3 = categoryColor(category,obj)
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.new(0,0,0)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextWrapped = true
+    label.Parent = gui
+
+    local highlight
+
+    if Config.Highlight then
+
+        highlight = Instance.new("Highlight")
+        highlight.Adornee = obj
+        highlight.FillTransparency = 0.8
+        highlight.OutlineTransparency = 0
+        highlight.OutlineColor = categoryColor(category,obj)
+        highlight.Parent = ESPFolder
+
+    end
+
+    ESP[obj] = {
+        Gui = gui,
+        Label = label,
+        Highlight = highlight,
+        Category = category,
     }
+end
 
-    function showInfo(text) {
-        infoBox.style.display = 'block';
-        infoBox.innerHTML = text;
-    }
-    function hideInfo() { infoBox.style.display = 'none'; }
+--============================================================--
+-- UPDATE ESP TEXT
+--============================================================--
 
-    // Lấy danh sách file từ folderId
-    async function fetchFiles(folderId) {
-        try {
-            const resp = await fetch(`${API_BASE}/getFolderDetails?folderId=${folderId}`);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            if (data.status === 'ok' && data.data) {
-                return { success: true, files: data.data.contents || [] };
-            } else {
-                throw new Error(data.status || 'Lỗi không xác định');
-            }
-        } catch (err) {
-            console.error(err);
-            return { success: false, error: err.message };
-        }
-    }
+local function updateESP(obj,data)
 
-    // Hiển thị danh sách file
-    function renderFiles(files) {
-        if (!files || files.length === 0) {
-            fileList.innerHTML = `<li class="empty">📭 Chưa có file nào</li>`;
-            return;
-        }
-        let html = '';
-        files.forEach(f => {
-            const sizeMB = (f.size / 1024 / 1024).toFixed(1);
-            const icon = f.mimetype?.startsWith('image/') ? '🖼️' :
-                         (f.name.endsWith('.pdf') ? '📄' : '📁');
-            const link = f.link || `https://gofile.io/d/${currentFolderId}/file/${f.fileId}`;
-            html += `
-                <li class="file-item">
-                    <div class="file-info">
-                        <span>${icon}</span>
-                        <div>
-                            <span class="file-name">${f.name}</span>
-                            <span class="file-size">${sizeMB} MB</span>
-                        </div>
-                    </div>
-                    <div class="file-actions">
-                        <a href="${link}" target="_blank" class="download">⬇️ Tải</a>
-                        <button class="copy" onclick="copyLink('${link}')">📋 Copy link</button>
-                    </div>
-                </li>
-            `;
-        });
-        fileList.innerHTML = html;
-    }
+    if not obj.Parent then
+        removeESP(obj)
+        return
+    end
 
-    window.copyLink = function(link) {
-        navigator.clipboard.writeText(link).then(() => {
-            alert('✅ Đã sao chép link tải!');
-        }).catch(() => {
-            const input = document.createElement('input');
-            input.value = link;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-            alert('✅ Đã sao chép link tải!');
-        });
-    };
+    if not enabled(data.Category) then
+        removeESP(obj)
+        return
+    end
 
-    async function refreshFolder() {
-        if (!currentFolderId) {
-            hideInfo();
-            renderFiles([]);
-            showMsg('Vui lòng nhập mã kho hoặc tạo mới.', '');
-            return;
-        }
-        showMsg('⏳ Đang tải danh sách...', '');
-        const result = await fetchFiles(currentFolderId);
-        if (!result.success) {
-            showMsg(`❌ Lỗi: ${result.error}`, 'error');
-            renderFiles([]);
-            return;
-        }
-        showMsg('', '');
-        const files = result.files;
-        const count = files.length;
-        renderFiles(files);
-        const link = `https://gofile.io/d/${currentFolderId}`;
-        showInfo(`
-            <div class="flex">
-                <span><strong>📂 Mã kho:</strong> ${currentFolderId}</span>
-                <span class="badge">${count} file</span>
-                <button class="btn btn-warning" style="padding:4px 12px; font-size:13px;" onclick="copyLink('${link}')">📋 Copy link kho</button>
-                <a href="${link}" target="_blank" class="btn btn-success" style="padding:4px 12px; font-size:13px; text-decoration:none;">🔗 Mở trên GoFile</a>
-            </div>
-        `);
-        manualNote.style.display = 'none';
-    }
+    local distance = getDistance(obj)
 
-    // Tạo folder mới - thử cả POST và GET
-    async function createFolder() {
-        try {
-            showMsg('⏳ Đang tạo kho mới...', '');
-            // Thử POST trước
-            let resp = await fetch(`${API_BASE}/createFolder`, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json' }
-            });
-            if (!resp.ok) {
-                // Nếu POST không được, thử GET
-                resp = await fetch(`${API_BASE}/createFolder?format=json`);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            }
-            const data = await resp.json();
-            if (data.status === 'ok' && data.data && data.data.folderId) {
-                const folderId = data.data.folderId;
-                currentFolderId = folderId;
-                folderInput.value = folderId;
-                await refreshFolder();
-                showMsg('✅ Tạo kho thành công!', '');
-                manualNote.style.display = 'none';
-                return true;
-            } else {
-                throw new Error(data.status || 'Tạo folder thất bại');
-            }
-        } catch (err) {
-            showMsg(`❌ Lỗi tạo kho: ${err.message}`, 'error');
-            // Hiện hướng dẫn tạo thủ công
-            manualNote.style.display = 'block';
-            return false;
-        }
-    }
+    if distance > Config.MaxDistance then
+        data.Gui.Enabled = false
 
-    // Upload file lên folder hiện tại
-    async function uploadFiles(files) {
-        if (!currentFolderId) {
-            showMsg('❌ Vui lòng nhập mã kho hoặc tạo mới trước khi upload.', 'error');
-            return;
-        }
-        // Kiểm tra dung lượng từng file (GoFile cho phép tới 20GB)
-        for (const f of files) {
-            if (f.size > 20 * 1024 * 1024 * 1024) {
-                showMsg(`❌ File ${f.name} vượt quá 20GB (giới hạn của GoFile).`, 'error');
-                return;
-            }
-        }
+        if data.Highlight then
+            data.Highlight.Enabled = false
+        end
 
-        showMsg('⏳ Đang upload...', '');
-        let successCount = 0;
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('folderId', currentFolderId);
+        return
+    end
 
-            try {
-                await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', `${API_BASE}/uploadFile`, true);
-                    xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable) {
-                            const percent = Math.round((e.loaded / e.total) * 100);
-                            progressBar.style.width = percent + '%';
-                            progressWrap.style.display = 'block';
-                        }
-                    };
-                    xhr.onload = () => {
-                        progressWrap.style.display = 'none';
-                        if (xhr.status === 200) {
-                            try {
-                                const json = JSON.parse(xhr.responseText);
-                                if (json.status === 'ok') {
-                                    successCount++;
-                                    resolve();
-                                } else {
-                                    reject(new Error(json.status || 'Upload thất bại'));
-                                }
-                            } catch(e) { reject(new Error('Phản hồi không hợp lệ')); }
-                        } else {
-                            reject(new Error(`HTTP ${xhr.status}`));
-                        }
-                    };
-                    xhr.onerror = () => {
-                        progressWrap.style.display = 'none';
-                        reject(new Error('Lỗi kết nối'));
-                    };
-                    xhr.send(formData);
-                });
-                showMsg(`✅ Upload thành công: ${file.name}`, '');
-            } catch (err) {
-                showMsg(`❌ Lỗi upload ${file.name}: ${err.message}`, 'error');
-                break;
-            }
-        }
-        await refreshFolder();
-    }
+    data.Gui.Enabled = true
 
-    // Sự kiện
-    enterBtn.addEventListener('click', async () => {
-        const id = folderInput.value.trim();
-        if (!id) {
-            showMsg('❌ Vui lòng nhập mã kho.', 'error');
-            return;
-        }
-        currentFolderId = id;
-        await refreshFolder();
-        manualNote.style.display = 'none';
-    });
+    if data.Highlight then
+        data.Highlight.Enabled = Config.Highlight
+    end
 
-    createBtn.addEventListener('click', async () => {
-        await createFolder();
-    });
+    local lines = {}
 
-    folderInput.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') enterBtn.click();
-    });
+    if data.Category == "Egg" then
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            uploadFiles(e.target.files);
-        }
-        e.target.value = '';
-    });
+        local eggName = getData(obj,{
+            "EggName",
+            "EggType",
+            "DisplayName",
+        }) or obj.Name
 
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#667eea';
-        dropZone.style.background = '#edf2f7';
-    });
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = '#cbd5e0';
-        dropZone.style.background = '#f7fafc';
-    });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#cbd5e0';
-        dropZone.style.background = '#f7fafc';
-        if (e.dataTransfer.files.length > 0) {
-            uploadFiles(e.dataTransfer.files);
-        }
-    });
-    dropZone.addEventListener('click', () => fileInput.click());
+        table.insert(lines,"🥚 "..tostring(eggName))
 
-    // Khi load trang, thử tạo kho tự động
-    window.addEventListener('load', async () => {
-        await createFolder();
-    });
-</script>
-</body>
-</html>
+        if Config.EggRank then
+            table.insert(
+                lines,
+                "⭐ "..getEggRank(obj)
+            )
+        end
+
+        if Config.EggPet then
+            table.insert(
+                lines,
+                "🐾 Pet: "..getEggPet(obj)
+            )
+        end
+
+        if Config.EggPrice then
+            local price = getEggPrice(obj)
+
+            if price ~= nil then
+                table.insert(
+                    lines,
+                    "💰 $"..formatNumber(price)
+                )
+            end
+        end
+
+        if Config.EggDistance then
+            table.insert(
+                lines,
+                "📏 "..math.floor(distance).."m"
+            )
+        end
+
+    else
+
+        if Config.ShowName then
+            table.insert(lines,obj.Name)
+        end
+
+        if Config.ShowHP then
+
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+
+            if hum then
+                table.insert(
+                    lines,
+                    "❤️ "..math.floor(hum.Health)
+                    .."/"
+                    ..math.floor(hum.MaxHealth)
+                )
+            end
+
+        end
+
+        if Config.ShowDistance then
+            table.insert(
+                lines,
+                "📏 "..math.floor(distance).."m"
+            )
+        end
+
+    end
+
+    data.Label.Text = table.concat(lines,"\n")
+end
+
+--============================================================--
+-- QUEUE SCANNER
+--============================================================--
+
+local function addQueue(obj)
+
+    if Cache[obj] then
+        return
+    end
+
+    Cache[obj] = true
+    table.insert(Queue,obj)
+end
+
+local function buildQueue()
+
+    table.clear(Queue)
+    QueueIndex = 1
+
+    for _,obj in ipairs(Workspace:GetDescendants()) do
+        addQueue(obj)
+    end
+end
+
+local function processQueue()
+
+    local processed = 0
+
+    while QueueIndex <= #Queue
+        and processed < Config.ScanPerFrame do
+
+        local obj = Queue[QueueIndex]
+        QueueIndex += 1
+        processed += 1
+
+        if obj and obj.Parent then
+
+            local logical = logicalObject(obj)
+
+            if logical then
+
+                local category = classify(logical)
+
+                if category then
+
+                    if enabled(category) then
+                        createESP(logical,category)
+                    end
+
+                end
+            end
+        end
+    end
+
+    if QueueIndex > #Queue then
+        table.clear(Queue)
+        QueueIndex = 1
+    end
+end
+
+--============================================================--
+-- NEW OBJECT EVENT
+--============================================================--
+
+Workspace.DescendantAdded:Connect(function(obj)
+
+    -- Small deferred operation instead of rescanning Workspace
+    task.defer(function()
+
+        if obj and obj.Parent then
+            addQueue(obj)
+        end
+
+    end)
+
+end)
+
+Workspace.DescendantRemoving:Connect(function(obj)
+
+    Cache[obj] = nil
+
+    if ESP[obj] then
+        removeESP(obj)
+    end
+
+end)
+
+--============================================================--
+-- MONEY
+--============================================================--
+
+local MoneyObject
+local LastMoney
+local LastMoneyTime
+local MoneyPerSecondValue = 0
+
+local function findMoney()
+
+    local leaderstats = Player:FindFirstChild("leaderstats")
+
+    if leaderstats then
+
+        for _,v in ipairs(leaderstats:GetChildren()) do
+
+            if v:IsA("ValueBase") then
+
+                local n = lower(v.Name)
+
+                if string.find(n,"money",1,true)
+                    or string.find(n,"cash",1,true)
+                    or string.find(n,"coin",1,true)
+                    or string.find(n,"gold",1,true) then
+
+                    return v
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function updateMoney()
+
+    MoneyObject = MoneyObject or findMoney()
+
+    if not MoneyObject then
+        return
+    end
+
+    local value = tonumber(MoneyObject.Value)
+
+    if not value then
+        return
+    end
+
+    local now = os.clock()
+
+    if LastMoney and LastMoneyTime then
+
+        local dt = now - LastMoneyTime
+
+        if dt > 0 then
+            MoneyPerSecondValue =
+                (value - LastMoney) / dt
+        end
+
+    end
+
+    LastMoney = value
+    LastMoneyTime = now
+end
+
+--============================================================--
+-- GUI
+--============================================================--
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "UniversalFarmESP_GUI_V2"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = PlayerGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(350,480)
+Main.Position = UDim2.new(.5,-175,.5,-240)
+Main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+Main.BorderSizePixel = 0
+Main.Parent = Gui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0,14)
+MainCorner.Parent = Main
+
+--============================================================--
+-- DRAG
+--============================================================--
+
+local dragging = false
+local dragStart
+local startPosition
+
+Main.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+
+    end
+
+end)
+
+Main.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = false
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not dragging then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local delta = input.Position - dragStart
+
+    Main.Position = UDim2.new(
+        startPosition.X.Scale,
+        startPosition.X.Offset + delta.X,
+        startPosition.Y.Scale,
+        startPosition.Y.Offset + delta.Y
+    )
+
+end)
+
+--============================================================--
+-- TITLE
+--============================================================--
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-55,0,45)
+Title.Position = UDim2.fromOffset(12,0)
+Title.BackgroundTransparency = 1
+Title.Text = "👁 FARM ESP V2"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Main
+
+local Min = Instance.new("TextButton")
+Min.Size = UDim2.fromOffset(40,40)
+Min.Position = UDim2.new(1,-45,0,3)
+Min.BackgroundTransparency = 1
+Min.Text = "—"
+Min.TextColor3 = Color3.new(1,1,1)
+Min.TextSize = 22
+Min.Parent = Main
+
+--============================================================--
+-- SCROLL
+--============================================================--
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Position = UDim2.fromOffset(10,50)
+Scroll.Size = UDim2.new(1,-20,1,-60)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 4
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.Parent = Main
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0,6)
+Layout.Parent = Scroll
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize =
+        UDim2.fromOffset(
+            0,
+            Layout.AbsoluteContentSize.Y + 15
+        )
+end)
+
+--============================================================--
+-- SECTION
+--============================================================--
+
+local function section(name)
+
+    local b = Instance.new("TextLabel")
+    b.Size = UDim2.new(1,-5,0,32)
+    b.BackgroundColor3 = Color3.fromRGB(28,28,28)
+    b.Text = name
+    b.TextColor3 = Color3.fromRGB(220,220,220)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.TextXAlignment = Enum.TextXAlignment.Left
+    b.Parent = Scroll
+
+    local p = Instance.new("UIPadding")
+    p.PaddingLeft = UDim.new(0,10)
+    p.Parent = b
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,7)
+    c.Parent = b
+end
+
+--============================================================--
+-- TOGGLE
+--============================================================--
+
+local function toggle(text,key)
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1,-5,0,40)
+    button.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    button.TextColor3 = Color3.new(1,1,1)
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 14
+    button.Parent = Scroll
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,8)
+    corner.Parent = button
+
+    local function refresh()
+
+        -- IMPORTANT:
+        -- OFF = false
+        -- ON = true
+        if Config[key] then
+            button.Text = text.."  [ON]"
+            button.BackgroundColor3 =
+                Color3.fromRGB(35,85,45)
+        else
+            button.Text = text.."  [OFF]"
+            button.BackgroundColor3 =
+                Color3.fromRGB(35,35,35)
+        end
+
+    end
+
+    refresh()
+
+    button.MouseButton1Click:Connect(function()
+
+        Config[key] = not Config[key]
+
+        refresh()
+
+        -- Không fullScan ở đây
+        -- Chỉ xử lý ESP đã có + queue mới
+        if not Config[key] then
+
+            for obj,data in pairs(ESP) do
+
+                if data.Category == "Egg"
+                    and key:sub(1,3) == "Egg" then
+
+                    -- Egg ESP master off
+                    if key == "EggESP" then
+                        removeESP(obj)
+                    end
+
+                elseif data.Category == "Monster"
+                    and key == "MonsterESP" then
+
+                    removeESP(obj)
+
+                elseif data.Category == "NPC"
+                    and key == "NPCESP" then
+
+                    removeESP(obj)
+
+                elseif data.Category == "Item"
+                    and key == "ItemESP" then
+
+                    removeESP(obj)
+
+                elseif data.Category == "Interactable"
+                    and key == "InteractableESP" then
+
+                    removeESP(obj)
+                end
+
+            end
+
+        else
+
+            -- Chỉ thêm object hiện có vào queue
+            for _,obj in ipairs(Workspace:GetDescendants()) do
+                addQueue(obj)
+            end
+
+        end
+
+    end)
+
+    return button
+end
+
+--============================================================--
+-- MENU SECTIONS
+--============================================================--
+
+section("🥚 EGG ESP")
+
+toggle("🥚 Egg ESP","EggESP")
+toggle("⭐ Egg Rank","EggRank")
+toggle("🐾 Pet Name","EggPet")
+toggle("💰 Egg Price","EggPrice")
+toggle("📏 Egg Distance","EggDistance")
+
+section("👹 MONSTER / NPC")
+
+toggle("👹 Monster ESP","MonsterESP")
+toggle("🧍 NPC ESP","NPCESP")
+
+section("📦 ITEM / INTERACT")
+
+toggle("📦 Item ESP","ItemESP")
+toggle("👆 Interactable ESP","InteractableESP")
+
+section("👁 DISPLAY")
+
+toggle("🏷 Name","ShowName")
+toggle("❤️ HP","ShowHP")
+toggle("📏 Distance","ShowDistance")
+toggle("✨ Highlight","Highlight")
+
+section("💵 MONEY")
+
+toggle("💰 Money","MoneyESP")
+toggle("💸 Money/s","MoneyPerSecond")
+
+--============================================================--
+-- SYSTEM BUTTONS
+--============================================================--
+
+section("⚙ SYSTEM")
+
+local ScanButton = Instance.new("TextButton")
+ScanButton.Size = UDim2.new(1,-5,0,42)
+ScanButton.BackgroundColor3 = Color3.fromRGB(45,45,45)
+ScanButton.Text = "🔎 SCAN NOW"
+ScanButton.TextColor3 = Color3.new(1,1,1)
+ScanButton.Font = Enum.Font.GothamBold
+ScanButton.TextSize = 14
+ScanButton.Parent = Scroll
+
+Instance.new("UICorner",ScanButton).CornerRadius =
+    UDim.new(0,8)
+
+ScanButton.MouseButton1Click:Connect(function()
+
+    -- Không scan ngay lập tức.
+    -- Cho scanner chạy theo batch.
+    buildQueue()
+
+end)
+
+local ClearButton = Instance.new("TextButton")
+ClearButton.Size = UDim2.new(1,-5,0,42)
+ClearButton.BackgroundColor3 = Color3.fromRGB(80,35,35)
+ClearButton.Text = "🗑 CLEAR ESP"
+ClearButton.TextColor3 = Color3.new(1,1,1)
+ClearButton.Font = Enum.Font.GothamBold
+ClearButton.TextSize = 14
+ClearButton.Parent = Scroll
+
+Instance.new("UICorner",ClearButton).CornerRadius =
+    UDim.new(0,8)
+
+ClearButton.MouseButton1Click:Connect(function()
+
+    for obj in pairs(ESP) do
+        removeESP(obj)
+    end
+
+end)
+
+--============================================================--
+-- MONEY PANEL
+--============================================================--
+
+local MoneyLabel = Instance.new("TextLabel")
+MoneyLabel.Size = UDim2.new(1,-5,0,55)
+MoneyLabel.BackgroundColor3 = Color3.fromRGB(25,25,25)
+MoneyLabel.TextColor3 = Color3.new(1,1,1)
+MoneyLabel.Font = Enum.Font.GothamBold
+MoneyLabel.TextSize = 14
+MoneyLabel.TextWrapped = true
+MoneyLabel.Text = "💰 Money: OFF"
+MoneyLabel.Parent = Scroll
+
+Instance.new("UICorner",MoneyLabel).CornerRadius =
+    UDim.new(0,8)
+
+--============================================================--
+-- FLOATING OPEN BUTTON
+--============================================================--
+
+local Open = Instance.new("TextButton")
+Open.Size = UDim2.fromOffset(55,55)
+Open.Position = UDim2.new(1,-70,0,80)
+Open.BackgroundColor3 = Color3.fromRGB(20,20,20)
+Open.Text = "👁"
+Open.TextSize = 25
+Open.TextColor3 = Color3.new(1,1,1)
+Open.Visible = false
+Open.Parent = Gui
+
+Instance.new("UICorner",Open).CornerRadius =
+    UDim.new(1,0)
+
+Min.MouseButton1Click:Connect(function()
+
+    Main.Visible = false
+    Open.Visible = true
+
+end)
+
+Open.MouseButton1Click:Connect(function()
+
+    Main.Visible = true
+    Open.Visible = false
+
+end)
+
+--============================================================--
+-- PERFORMANCE LOOP
+--============================================================--
+
+local updateTimer = 0
+local scanTimer = 0
+
+RunService.Heartbeat:Connect(function(dt)
+
+    -- Scan queue slowly
+    scanTimer += dt
+
+    if scanTimer >= Config.ScanDelay then
+        scanTimer = 0
+        processQueue()
+    end
+
+    -- ESP update throttled
+    updateTimer += dt
+
+    if updateTimer >= Config.UpdateInterval then
+
+        updateTimer = 0
+
+        for obj,data in pairs(ESP) do
+            updateESP(obj,data)
+        end
+
+        if Config.MoneyESP
+            or Config.MoneyPerSecond then
+
+            updateMoney()
+
+            local text = ""
+
+            if Config.MoneyESP then
+
+                if MoneyObject then
+
+                    text =
+                        "💰 Money: $"
+                        ..formatNumber(MoneyObject.Value)
+
+                else
+                    text = "💰 Money: ?"
+                end
+
+            end
+
+            if Config.MoneyPerSecond then
+
+                if text ~= "" then
+                    text ..= "\n"
+                end
+
+                text =
+                    text
+                    .."💸 Money/s: $"
+                    ..formatNumber(MoneyPerSecondValue)
+
+            end
+
+            MoneyLabel.Text = text
+
+        else
+
+            MoneyLabel.Text = "💰 Money: OFF"
+
+        end
+
+    end
+
+end)
+
+--============================================================--
+-- INITIAL QUEUE
+--============================================================--
+
+task.defer(function()
+
+    buildQueue()
+
+end)
+
+print("================================")
+print(" UNIVERSAL FARM ESP V2 LOADED")
+print(" ALL ESP DEFAULT = OFF")
+print(" BATCH SCANNER = ON")
+print(" PERFORMANCE MODE = ON")
+print("================================")
