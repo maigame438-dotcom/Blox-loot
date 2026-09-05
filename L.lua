@@ -1,473 +1,678 @@
-repeat task.wait() until game:IsLoaded()
+-- ==============================================================================
+-- BLOX LOOT MONSTER ESP (MOBILE OPTIMIZED)
+-- ==============================================================================
+-- Features: Auto Detect, Filtering, Tracers, Highlights, Billboard, Draggable UI
+-- ==============================================================================
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-local player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
-local MOVE_SPEED = 180 
-local gameId = tostring(game.PlaceId)
+local LocalPlayer = Players.LocalPlayer
 
--- Dữ liệu lưu trữ
-local masterFileName = "TPMenu_Master_" .. gameId .. ".json"
-local savedFiles = {} 
-local currentFile = nil
-local currentLocations = {}
-local currentMode = "Fast"
+-- Configurations
+local Config = {
+    Master = true,
+    ShowName = true,
+    ShowHP = true,
+    ShowDistance = true,
+    ShowLevel = true,
+    Highlight = true,
+    Billboard = true,
+    Tracer = false,
+    MaxDistance = 2000,
+    SelectedMonsters = {}, 
+    DetectedTypes = {}
+}
 
----------------------------------------------
--- HỆ THỐNG QUẢN LÝ TỆP (FILE SYSTEM)
----------------------------------------------
-local function loadMaster()
-    if readfile and isfile and isfile(masterFileName) then
-        local s, r = pcall(function() return HttpService:JSONDecode(readfile(masterFileName)) end)
-        if s and type(r) == "table" then savedFiles = r end
-    end
-end
+local Cache = {} -- Stores active ESP objects
 
-local function saveMaster()
-    if writefile then
-        writefile(masterFileName, HttpService:JSONEncode(savedFiles))
-    end
-end
+-- ==============================================================================
+-- UI CREATION (NO EXTERNAL LIBS)
+-- ==============================================================================
 
-local function getFilePath(fileName)
-    local safeName = string.gsub(fileName, "[^%w%_]", "")
-    return "TPMenu_Data_" .. gameId .. "_" .. safeName .. ".json"
-end
-
-local function loadFileData(fileName)
-    local path = getFilePath(fileName)
-    currentLocations = {}
-    if readfile and isfile and isfile(path) then
-        local s, r = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
-        if s and type(r) == "table" then
-            for _, loc in ipairs(r) do
-                table.insert(currentLocations, {Name = loc.Name, CFrame = CFrame.new(unpack(loc.CFrame))})
-            end
+local function ProtectUI(gui)
+    pcall(function()
+        if syn and syn.protect_gui then
+            syn.protect_gui(gui)
         end
+    end)
+    pcall(function()
+        gui.Parent = CoreGui
+    end)
+    if not gui.Parent then
+        pcall(function() gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end)
     end
 end
 
-local function saveFileData()
-    if not currentFile or not writefile then return end
-    local data = {}
-    for _, loc in ipairs(currentLocations) do
-        table.insert(data, {Name = loc.Name, CFrame = {loc.CFrame:GetComponents()}})
-    end
-    writefile(getFilePath(currentFile), HttpService:JSONEncode(data))
-end
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BloxLootMonsterESP"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ProtectUI(ScreenGui)
 
----------------------------------------------
--- KHỞI TẠO GUI CHÍNH
----------------------------------------------
-local guiParent
-local s, core = pcall(function() return game:GetService("CoreGui") end)
-guiParent = gethui and gethui() or (s and core) or player:WaitForChild("PlayerGui")
-
-if guiParent:FindFirstChild("MobileTP_MasterUI") then 
-    guiParent.MobileTP_MasterUI:Destroy() 
-end
-
-local screen = Instance.new("ScreenGui")
-screen.Name = "MobileTP_MasterUI"
-screen.ResetOnSpawn = false
-screen.Parent = guiParent
-
--- Nút Kích hoạt nổi (Kéo thả được)
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 45, 0, 45)
-toggleBtn.Position = UDim2.new(0, 10, 0.5, -22)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.Text = "🚀"
-toggleBtn.TextSize = 20
-toggleBtn.Parent = screen
-Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", toggleBtn).Color = Color3.fromRGB(50, 50, 50)
-
----------------------------------------------
--- TẠO STYLE CHUNG (Tối giản / Dark Mode)
----------------------------------------------
-local function createStyleWindow(name, size, pos)
-    local frame = Instance.new("Frame")
-    frame.Name = name
-    frame.Size = size
-    frame.Position = pos
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.Visible = false
-    frame.Active = true
-    frame.ClipsDescendants = true
-    frame.Parent = screen
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-    
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = Color3.fromRGB(45, 45, 45)
-    stroke.Thickness = 1
-    
-    local topBar = Instance.new("Frame")
-    topBar.Size = UDim2.new(1, 0, 0, 30)
-    topBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    topBar.BorderSizePixel = 0
-    topBar.Parent = frame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.7, 0, 1, 0)
-    title.Position = UDim2.new(0.04, 0, 0, 0)
-    title.Font = Enum.Font.GothamMedium
-    title.TextSize = 13
-    title.TextColor3 = Color3.fromRGB(220, 220, 220)
-    title.BackgroundTransparency = 1
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = topBar
-    
-    return frame, topBar, title
-end
-
----------------------------------------------
--- GIAO DIỆN MAIN (Quản lý File)
----------------------------------------------
-local mainUI, mainTop, mainTitle = createStyleWindow("MainMenu", UDim2.new(0, 300, 0, 320), UDim2.new(0.5, -150, 0.5, -160))
-mainTitle.Text = "Main - Quản Lý Tệp"
-
-local mainClose = Instance.new("TextButton")
-mainClose.Size = UDim2.new(0, 30, 1, 0)
-mainClose.Position = UDim2.new(1, -30, 0, 0)
-mainClose.Text = "✕"
-mainClose.TextColor3 = Color3.fromRGB(150, 150, 150)
-mainClose.BackgroundTransparency = 1
-mainClose.Parent = mainTop
-
-local addFileBox = Instance.new("TextBox")
-addFileBox.Size = UDim2.new(0.7, 0, 0, 35)
-addFileBox.Position = UDim2.new(0.05, 0, 0, 40)
-addFileBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-addFileBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-addFileBox.PlaceholderText = "Nhập tên tệp mới..."
-addFileBox.Font = Enum.Font.Gotham
-addFileBox.TextSize = 12
-addFileBox.Parent = mainUI
-Instance.new("UICorner", addFileBox).CornerRadius = UDim.new(0, 6)
-
-local addFileBtn = Instance.new("TextButton")
-addFileBtn.Size = UDim2.new(0.2, 0, 0, 35)
-addFileBtn.Position = UDim2.new(0.77, 0, 0, 40)
-addFileBtn.Text = "Tạo"
-addFileBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
-addFileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-addFileBtn.Font = Enum.Font.GothamBold
-addFileBtn.TextSize = 12
-addFileBtn.Parent = mainUI
-Instance.new("UICorner", addFileBtn).CornerRadius = UDim.new(0, 6)
-
-local fileScroll = Instance.new("ScrollingFrame")
-fileScroll.Size = UDim2.new(0.9, 0, 1, -95)
-fileScroll.Position = UDim2.new(0.05, 0, 0, 85)
-fileScroll.BackgroundTransparency = 1
-fileScroll.BorderSizePixel = 0
-fileScroll.ScrollBarThickness = 3
-fileScroll.Parent = mainUI
-local fileListLayout = Instance.new("UIListLayout", fileScroll)
-fileListLayout.Padding = UDim.new(0, 5)
-
----------------------------------------------
--- GIAO DIỆN SUBMENU (Điểm dịch chuyển)
----------------------------------------------
-local subUI, subTop, subTitle = createStyleWindow("SubMenu", UDim2.new(0, 280, 0, 360), UDim2.new(0.5, 160, 0.5, -160))
-
-local subMinimize = Instance.new("TextButton")
-subMinimize.Size = UDim2.new(0, 30, 1, 0)
-subMinimize.Position = UDim2.new(1, -60, 0, 0)
-subMinimize.Text = "—"
-subMinimize.TextColor3 = Color3.fromRGB(150, 150, 150)
-subMinimize.BackgroundTransparency = 1
-subMinimize.Parent = subTop
-
-local subClose = Instance.new("TextButton")
-subClose.Size = UDim2.new(0, 30, 1, 0)
-subClose.Position = UDim2.new(1, -30, 0, 0)
-subClose.Text = "✕"
-subClose.TextColor3 = Color3.fromRGB(150, 150, 150)
-subClose.BackgroundTransparency = 1
-subClose.Parent = subTop
-
--- Content bên trong SubMenu
-local subContent = Instance.new("Frame")
-subContent.Size = UDim2.new(1, 0, 1, -30)
-subContent.Position = UDim2.new(0, 0, 0, 30)
-subContent.BackgroundTransparency = 1
-subContent.Parent = subUI
-
-local modeBtn = Instance.new("TextButton")
-modeBtn.Size = UDim2.new(0.9, 0, 0, 30)
-modeBtn.Position = UDim2.new(0.05, 0, 0, 10)
-modeBtn.Text = "Chế độ: Bay Tốc Độ (Fast)"
-modeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-modeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-modeBtn.Font = Enum.Font.GothamMedium
-modeBtn.TextSize = 12
-modeBtn.Parent = subContent
-Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 6)
-
-local addLocBtn = Instance.new("TextButton")
-addLocBtn.Size = UDim2.new(0.9, 0, 0, 35)
-addLocBtn.Position = UDim2.new(0.05, 0, 0, 48)
-addLocBtn.Text = "+ Lưu Vị Trí Đang Đứng"
-addLocBtn.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
-addLocBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-addLocBtn.Font = Enum.Font.GothamBold
-addLocBtn.TextSize = 12
-addLocBtn.Parent = subContent
-Instance.new("UICorner", addLocBtn).CornerRadius = UDim.new(0, 6)
-
-local locScroll = Instance.new("ScrollingFrame")
-locScroll.Size = UDim2.new(0.9, 0, 1, -100)
-locScroll.Position = UDim2.new(0.05, 0, 0, 90)
-locScroll.BackgroundTransparency = 1
-locScroll.BorderSizePixel = 0
-locScroll.ScrollBarThickness = 3
-locScroll.Parent = subContent
-local locListLayout = Instance.new("UIListLayout", locScroll)
-locListLayout.Padding = UDim.new(0, 5)
-
----------------------------------------------
--- LOGIC & CHỨC NĂNG CẬP NHẬT GIAO DIỆN
----------------------------------------------
-local isMinimized = false
-
-local function updateLocUI()
-    for _, child in pairs(locScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
-    for index, loc in ipairs(currentLocations) do
-        local item = Instance.new("Frame", locScroll)
-        item.Size = UDim2.new(1, -5, 0, 35)
-        item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 5)
-
-        local name = Instance.new("TextLabel", item)
-        name.Size = UDim2.new(0.5, 0, 1, 0)
-        name.Position = UDim2.new(0.05, 0, 0, 0)
-        name.Text = loc.Name
-        name.BackgroundTransparency = 1
-        name.TextColor3 = Color3.fromRGB(220, 220, 220)
-        name.Font = Enum.Font.Gotham
-        name.TextSize = 12
-        name.TextXAlignment = Enum.TextXAlignment.Left
-
-        local tp = Instance.new("TextButton", item)
-        tp.Size = UDim2.new(0.25, 0, 0.7, 0)
-        tp.Position = UDim2.new(0.55, 0, 0.15, 0)
-        tp.Text = "Đến"
-        tp.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-        tp.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Instance.new("UICorner", tp).CornerRadius = UDim.new(0, 4)
-
-        local del = Instance.new("TextButton", item)
-        del.Size = UDim2.new(0.12, 0, 0.7, 0)
-        del.Position = UDim2.new(0.83, 0, 0.15, 0)
-        del.Text = "✕"
-        del.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
-        del.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Instance.new("UICorner", del).CornerRadius = UDim.new(0, 4)
-
-        tp.Activated:Connect(function() _G.TPPlayer(loc.CFrame) end)
-        del.Activated:Connect(function()
-            table.remove(currentLocations, index)
-            saveFileData() updateLocUI()
-        end)
-    end
-    locScroll.CanvasSize = UDim2.new(0, 0, 0, #currentLocations * 40)
-end
-
-local function updateMainUI()
-    for _, child in pairs(fileScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
-    for index, fName in ipairs(savedFiles) do
-        local item = Instance.new("Frame", fileScroll)
-        item.Size = UDim2.new(1, -5, 0, 40)
-        item.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        Instance.new("UICorner", item).CornerRadius = UDim.new(0, 5)
-
-        local name = Instance.new("TextLabel", item)
-        name.Size = UDim2.new(0.5, 0, 1, 0)
-        name.Position = UDim2.new(0.05, 0, 0, 0)
-        name.Text = "📁 " .. fName
-        name.BackgroundTransparency = 1
-        name.TextColor3 = Color3.fromRGB(220, 220, 220)
-        name.Font = Enum.Font.GothamMedium
-        name.TextSize = 13
-        name.TextXAlignment = Enum.TextXAlignment.Left
-
-        local openBtn = Instance.new("TextButton", item)
-        openBtn.Size = UDim2.new(0.25, 0, 0.7, 0)
-        openBtn.Position = UDim2.new(0.55, 0, 0.15, 0)
-        openBtn.Text = "Mở"
-        openBtn.BackgroundColor3 = Color3.fromRGB(180, 140, 50)
-        openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 4)
-
-        local delBtn = Instance.new("TextButton", item)
-        delBtn.Size = UDim2.new(0.12, 0, 0.7, 0)
-        delBtn.Position = UDim2.new(0.83, 0, 0.15, 0)
-        delBtn.Text = "✕"
-        delBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-        delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-
-        openBtn.Activated:Connect(function()
-            currentFile = fName
-            subTitle.Text = "Tệp: " .. fName
-            loadFileData(fName)
-            updateLocUI()
-            subUI.Visible = true
-            if isMinimized then subMinimize.Activated:Fire() end
-        end)
-        
-        delBtn.Activated:Connect(function()
-            if delfile and isfile and isfile(getFilePath(fName)) then delfile(getFilePath(fName)) end
-            table.remove(savedFiles, index)
-            saveMaster() updateMainUI()
-            if currentFile == fName then subUI.Visible = false currentFile = nil end
-        end)
-    end
-    fileScroll.CanvasSize = UDim2.new(0, 0, 0, #savedFiles * 45)
-end
-
----------------------------------------------
--- TƯƠNG TÁC NÚT CƠ BẢN
----------------------------------------------
-addFileBtn.Activated:Connect(function()
-    local text = addFileBox.Text
-    if text ~= "" then
-        table.insert(savedFiles, text)
-        saveMaster()
-        updateMainUI()
-        addFileBox.Text = ""
-    end
-end)
-
-addLocBtn.Activated:Connect(function()
-    if not currentFile then return end
-    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if root then
-        table.insert(currentLocations, {Name = "Điểm " .. (#currentLocations + 1), CFrame = root.CFrame})
-        saveFileData()
-        updateLocUI()
-    end
-end)
-
-modeBtn.Activated:Connect(function()
-    if currentMode == "Fast" then
-        currentMode = "Instant"
-        modeBtn.Text = "Chế độ: TP Tức Thì (TP)"
-    else
-        currentMode = "Fast"
-        modeBtn.Text = "Chế độ: Bay Tốc Độ (Fast)"
-    end
-end)
-
--- Thu gọn SubMenu
-subMinimize.Activated:Connect(function()
-    isMinimized = not isMinimized
-    if isMinimized then
-        TweenService:Create(subUI, TweenInfo.new(0.2), {Size = UDim2.new(0, 280, 0, 30)}):Play()
-        subContent.Visible = false
-    else
-        TweenService:Create(subUI, TweenInfo.new(0.2), {Size = UDim2.new(0, 280, 0, 360)}):Play()
-        subContent.Visible = true
-    end
-end)
-
-mainClose.Activated:Connect(function() mainUI.Visible = false end)
-subClose.Activated:Connect(function() subUI.Visible = false currentFile = nil end)
-
----------------------------------------------
--- DI CHUYỂN CHỐNG ANTI-CHEAT
----------------------------------------------
-_G.TPPlayer = function(targetCFrame)
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum then return end
-
-    if currentMode == "Instant" then
-        for i = 1, 3 do
-            root.CFrame = targetCFrame
-            root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
-            task.wait(0.05)
-        end
-    else
-        local runAnim = Instance.new("Animation")
-        runAnim.AnimationId = "rbxassetid://180426354"
-        local track = (hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)):LoadAnimation(runAnim)
-        track:Play()
-
-        local timeToTake = math.max((root.Position - targetCFrame.Position).Magnitude / MOVE_SPEED, 0.15)
-        root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
-
-        local tween = TweenService:Create(root, TweenInfo.new(timeToTake, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
-        root.Anchored = true
-        tween:Play()
-
-        tween.Completed:Connect(function()
-            track:Stop() runAnim:Destroy()
-            for i = 1, 5 do
-                root.CFrame = targetCFrame
-                root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
-                task.wait(0.05)
-            end
-            root.Anchored = false
-        end)
-    end
-end
-
----------------------------------------------
--- HỆ THỐNG KÉO THẢ GIAO DIỆN
----------------------------------------------
-local function makeDraggable(frame, topBar)
-    local dragToggle, dragStart, startPos
-    topBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragToggle = true
+-- Dragging Function (Supports Mobile Touch & Mouse)
+local function MakeDraggable(topbar, object)
+    local dragging, dragInput, dragStart, startPos
+    topbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
             dragStart = input.Position
-            startPos = frame.Position
+            startPos = object.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
+    topbar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragToggle and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 end
 
-makeDraggable(mainUI, mainTop)
-makeDraggable(subUI, subTop)
+-- Floating Button
+local FloatBtn = Instance.new("TextButton")
+FloatBtn.Size = UDim2.new(0, 40, 0, 40)
+FloatBtn.Position = UDim2.new(0, 10, 0.5, -20)
+FloatBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+FloatBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
+FloatBtn.Text = "👁"
+FloatBtn.TextScaled = true
+FloatBtn.Font = Enum.Font.GothamBold
+FloatBtn.UICorner = Instance.new("UICorner", FloatBtn)
+FloatBtn.UICorner.CornerRadius = UDim.new(1, 0)
+FloatBtn.UIStroke = Instance.new("UIStroke", FloatBtn)
+FloatBtn.UIStroke.Color = Color3.fromRGB(0, 255, 150)
+FloatBtn.UIStroke.Thickness = 2
+FloatBtn.Parent = ScreenGui
+MakeDraggable(FloatBtn, FloatBtn)
 
--- Nút nổi bật tắt Main Menu
-local btnDragged, btnDragStart = false, nil
-toggleBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        btnDragged = false 
-        btnDragStart = input.Position
-    end
-end)
-toggleBtn.InputEnded:Connect(function(input)
-    if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) and not btnDragged then
-        mainUI.Visible = not mainUI.Visible
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if btnDragStart and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-        if (input.Position - btnDragStart).Magnitude > 5 then btnDragged = true end
-    end
-end)
-makeDraggable(toggleBtn, toggleBtn)
+-- Main Menu Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 320, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
----------------------------------------------
--- KHỞI ĐỘNG
----------------------------------------------
-loadMaster()
-updateMainUI()
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 35)
+Header.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+Header.Parent = MainFrame
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+MakeDraggable(Header, MainFrame)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "👁 BLOX LOOT MONSTER ESP"
+Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local CollapseBtn = Instance.new("TextButton")
+CollapseBtn.Size = UDim2.new(0, 30, 0, 30)
+CollapseBtn.Position = UDim2.new(1, -65, 0, 2)
+CollapseBtn.BackgroundTransparency = 1
+CollapseBtn.Text = "_"
+CollapseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CollapseBtn.Font = Enum.Font.GothamBold
+CollapseBtn.TextSize = 16
+CollapseBtn.Parent = Header
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 2)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = Header
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Size = UDim2.new(1, -20, 0, 20)
+StatusText.Position = UDim2.new(0, 10, 0, 40)
+StatusText.BackgroundTransparency = 1
+StatusText.Text = "Scanning... | Found: 0"
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusText.Font = Enum.Font.Gotham
+StatusText.TextSize = 12
+StatusText.TextXAlignment = Enum.TextXAlignment.Left
+StatusText.Parent = MainFrame
+
+-- Tab System
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, 0, 1, -65)
+TabContainer.Position = UDim2.new(0, 0, 0, 65)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local SettingsTab = Instance.new("ScrollingFrame")
+SettingsTab.Size = UDim2.new(0.5, 0, 1, 0)
+SettingsTab.BackgroundTransparency = 1
+SettingsTab.ScrollBarThickness = 3
+SettingsTab.Parent = TabContainer
+
+local UIListSettings = Instance.new("UIListLayout", SettingsTab)
+UIListSettings.SortOrder = Enum.SortOrder.LayoutOrder
+UIListSettings.Padding = UDim.new(0, 5)
+
+local MonsterTab = Instance.new("Frame")
+MonsterTab.Size = UDim2.new(0.5, 0, 1, 0)
+MonsterTab.Position = UDim2.new(0.5, 0, 0, 0)
+MonsterTab.BackgroundTransparency = 1
+MonsterTab.Parent = TabContainer
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(1, -10, 0, 25)
+SearchBox.Position = UDim2.new(0, 5, 0, 0)
+SearchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBox.PlaceholderText = "Search Monster..."
+SearchBox.Text = ""
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 12
+SearchBox.Parent = MonsterTab
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+local SelectAllBtn = Instance.new("TextButton")
+SelectAllBtn.Size = UDim2.new(0.5, -7, 0, 20)
+SelectAllBtn.Position = UDim2.new(0, 5, 0, 30)
+SelectAllBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+SelectAllBtn.TextColor3 = Color3.new(1, 1, 1)
+SelectAllBtn.Text = "Select All"
+SelectAllBtn.Font = Enum.Font.Gotham
+SelectAllBtn.TextSize = 10
+SelectAllBtn.Parent = MonsterTab
+Instance.new("UICorner", SelectAllBtn)
+
+local ClearAllBtn = Instance.new("TextButton")
+ClearAllBtn.Size = UDim2.new(0.5, -7, 0, 20)
+ClearAllBtn.Position = UDim2.new(0.5, 2, 0, 30)
+ClearAllBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+ClearAllBtn.TextColor3 = Color3.new(1, 1, 1)
+ClearAllBtn.Text = "Clear All"
+ClearAllBtn.Font = Enum.Font.Gotham
+ClearAllBtn.TextSize = 10
+ClearAllBtn.Parent = MonsterTab
+Instance.new("UICorner", ClearAllBtn)
+
+local MonsterScroll = Instance.new("ScrollingFrame")
+MonsterScroll.Size = UDim2.new(1, 0, 1, -60)
+MonsterScroll.Position = UDim2.new(0, 0, 0, 55)
+MonsterScroll.BackgroundTransparency = 1
+MonsterScroll.ScrollBarThickness = 3
+MonsterScroll.Parent = MonsterTab
+local UIListMonsters = Instance.new("UIListLayout", MonsterScroll)
+UIListMonsters.SortOrder = Enum.SortOrder.Name
+UIListMonsters.Padding = UDim.new(0, 3)
+
+-- UI Helpers
+local function CreateToggle(parent, text, configKey, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -10, 0, 30)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parent
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -40, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 20, 0, 20)
+    ToggleBtn.Position = UDim2.new(1, -30, 0.5, -10)
+    ToggleBtn.BackgroundColor3 = Config[configKey] and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(60, 60, 70)
+    ToggleBtn.Text = ""
+    ToggleBtn.Parent = Frame
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 4)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        if type(Config[configKey]) == "boolean" then
+            Config[configKey] = not Config[configKey]
+            ToggleBtn.BackgroundColor3 = Config[configKey] and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(60, 60, 70)
+            if callback then callback(Config[configKey]) end
+        end
+    end)
+    return ToggleBtn
+end
+
+local function CreateSlider(parent, text, min, max, configKey)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -10, 0, 45)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parent
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -10, 0, 15)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text .. ": " .. Config[configKey]
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local SliderBG = Instance.new("TextButton")
+    SliderBG.Size = UDim2.new(1, -20, 0, 10)
+    SliderBG.Position = UDim2.new(0, 10, 0, 25)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    SliderBG.Text = ""
+    SliderBG.Parent = Frame
+    Instance.new("UICorner", SliderBG).CornerRadius = UDim.new(1, 0)
+
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((Config[configKey] - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+    Fill.Parent = SliderBG
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+    local function update(input)
+        local pos = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+        Fill.Size = UDim2.new(pos, 0, 1, 0)
+        local val = math.floor(min + (max - min) * pos)
+        Config[configKey] = val
+        Label.Text = text .. ": " .. val
+    end
+
+    SliderBG.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            update(input)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            update(input)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Populate Settings
+CreateToggle(SettingsTab, "Master ESP", "Master")
+CreateToggle(SettingsTab, "Show Name", "ShowName")
+CreateToggle(SettingsTab, "Show HP", "ShowHP")
+CreateToggle(SettingsTab, "Show Distance", "ShowDistance")
+CreateToggle(SettingsTab, "Show Level", "ShowLevel")
+CreateToggle(SettingsTab, "Use Highlight", "Highlight")
+CreateToggle(SettingsTab, "Use Billboard", "Billboard")
+CreateToggle(SettingsTab, "Show Tracers", "Tracer")
+CreateSlider(SettingsTab, "Max Distance", 100, 10000, "MaxDistance")
+
+local RefreshBtn = Instance.new("TextButton")
+RefreshBtn.Size = UDim2.new(1, -20, 0, 25)
+RefreshBtn.Position = UDim2.new(0, 10, 0, 0)
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 150)
+RefreshBtn.TextColor3 = Color3.new(1, 1, 1)
+RefreshBtn.Text = "Manual Refresh"
+RefreshBtn.Font = Enum.Font.Gotham
+RefreshBtn.TextSize = 12
+RefreshBtn.Parent = SettingsTab
+Instance.new("UICorner", RefreshBtn)
+
+-- UI Interactions
+FloatBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    FloatBtn.Visible = false
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    FloatBtn.Visible = true
+end)
+
+local collapsed = false
+CollapseBtn.MouseButton1Click:Connect(function()
+    collapsed = not collapsed
+    MainFrame.Size = collapsed and UDim2.new(0, 320, 0, 35) or UDim2.new(0, 320, 0, 450)
+    TabContainer.Visible = not collapsed
+end)
+
+-- Monster List Logic
+local MonsterToggles = {}
+
+local function UpdateMonsterListUI()
+    for _, child in pairs(MonsterScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    MonsterToggles = {}
+    
+    local filter = string.lower(SearchBox.Text)
+    local sortedNames = {}
+    for name, _ in pairs(Config.DetectedTypes) do
+        if filter == "" or string.find(string.lower(name), filter) then
+            table.insert(sortedNames, name)
+        end
+    end
+    table.sort(sortedNames)
+    
+    for _, name in ipairs(sortedNames) do
+        local Frame = Instance.new("Frame")
+        Frame.Size = UDim2.new(1, -10, 0, 25)
+        Frame.Position = UDim2.new(0, 5, 0, 0)
+        Frame.BackgroundTransparency = 1
+        Frame.Name = name
+        Frame.Parent = MonsterScroll
+        
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, -30, 1, 0)
+        Label.BackgroundTransparency = 1
+        Label.Text = " " .. name
+        Label.TextColor3 = Color3.new(1, 1, 1)
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 11
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.TextTruncate = Enum.TextTruncate.AtEnd
+        Label.Parent = Frame
+        
+        local Check = Instance.new("TextButton")
+        Check.Size = UDim2.new(0, 15, 0, 15)
+        Check.Position = UDim2.new(1, -20, 0.5, -7.5)
+        Check.BackgroundColor3 = Config.SelectedMonsters[name] and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(60, 60, 70)
+        Check.Text = ""
+        Check.Parent = Frame
+        Instance.new("UICorner", Check).CornerRadius = UDim.new(0, 3)
+        
+        Check.MouseButton1Click:Connect(function()
+            Config.SelectedMonsters[name] = not Config.SelectedMonsters[name]
+            Check.BackgroundColor3 = Config.SelectedMonsters[name] and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(60, 60, 70)
+        end)
+        MonsterToggles[name] = Check
+    end
+end
+
+SearchBox.Changed:Connect(function(prop)
+    if prop == "Text" then UpdateMonsterListUI() end
+end)
+
+SelectAllBtn.MouseButton1Click:Connect(function()
+    for name, _ in pairs(Config.DetectedTypes) do Config.SelectedMonsters[name] = true end
+    UpdateMonsterListUI()
+end)
+
+ClearAllBtn.MouseButton1Click:Connect(function()
+    for name, _ in pairs(Config.DetectedTypes) do Config.SelectedMonsters[name] = false end
+    UpdateMonsterListUI()
+end)
+
+-- ==============================================================================
+-- ESP CORE LOGIC
+-- ==============================================================================
+
+local function GetHealthInfo(model)
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if hum then return hum.Health, hum.MaxHealth end
+    local hpVal = model:FindFirstChild("Health") or model:FindFirstChild("HP")
+    local maxHpVal = model:FindFirstChild("MaxHealth") or model:FindFirstChild("MaxHP")
+    if hpVal and hpVal:IsA("NumberValue") then
+        local max = (maxHpVal and maxHpVal:IsA("NumberValue")) and maxHpVal.Value or hpVal.Value
+        return hpVal.Value, max
+    end
+    -- Fallback via attributes
+    local attrHp = model:GetAttribute("Health") or model:GetAttribute("HP")
+    if attrHp then
+        local attrMax = model:GetAttribute("MaxHealth") or model:GetAttribute("MaxHP") or attrHp
+        return attrHp, attrMax
+    end
+    return nil, nil
+end
+
+local function GetLevel(model)
+    local lvVal = model:FindFirstChild("Level") or model:FindFirstChild("Lv")
+    if lvVal and (lvVal:IsA("NumberValue") or lvVal:IsA("IntValue")) then return lvVal.Value end
+    local attrLv = model:GetAttribute("Level") or model:GetAttribute("Lv")
+    if attrLv then return attrLv end
+    -- Check Name for level e.g. "[Lv. 50] Bandit"
+    local match = string.match(model.Name, "%d+")
+    if match then return match end
+    return "??"
+end
+
+local function GetColorByHP(current, max)
+    if not current or not max or max == 0 then return Color3.fromRGB(0, 255, 150) end
+    local pct = current / max
+    if pct > 0.6 then return Color3.fromRGB(0, 255, 150) -- Green
+    elseif pct > 0.3 then return Color3.fromRGB(255, 200, 0) -- Yellow
+    else return Color3.fromRGB(255, 50, 50) -- Red
+    end
+end
+
+-- Create ESP for a specific Monster
+local function AddESP(model)
+    if Cache[model] then return end
+    local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if not root then return end
+
+    local cleanName = string.gsub(model.Name, "%[.-%]%s*", "") -- Remove level tags from name for cleaner sorting
+    
+    if not Config.DetectedTypes[cleanName] then
+        Config.DetectedTypes[cleanName] = true
+        Config.SelectedMonsters[cleanName] = true -- Auto select new types
+        UpdateMonsterListUI()
+    end
+
+    -- BillboardGui
+    local bg = Instance.new("BillboardGui")
+    bg.Name = "ESP_BB"
+    bg.Adornee = root
+    bg.Size = UDim2.new(0, 200, 0, 60)
+    bg.StudsOffset = Vector3.new(0, 3, 0)
+    bg.AlwaysOnTop = true
+    bg.Parent = CoreGui -- Safer from deletion than model
+
+    local textLabel = Instance.new("TextLabel", bg)
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 12
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextColor3 = Color3.new(1, 1, 1)
+    textLabel.RichText = true
+
+    -- Highlight
+    local hl = Instance.new("Highlight")
+    hl.Adornee = model
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0.2
+    hl.Parent = CoreGui
+
+    -- Tracer (GUI Line)
+    local tracer = Instance.new("Frame")
+    tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracer.BorderSizePixel = 0
+    tracer.BackgroundColor3 = Color3.new(1,1,1)
+    tracer.Visible = false
+    tracer.Parent = ScreenGui
+
+    local conn
+    conn = model.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            if Cache[model] then
+                pcall(function() Cache[model].bg:Destroy() end)
+                pcall(function() Cache[model].hl:Destroy() end)
+                pcall(function() Cache[model].tracer:Destroy() end)
+                conn:Disconnect()
+                Cache[model] = nil
+            end
+        end
+    end)
+
+    Cache[model] = {
+        model = model,
+        root = root,
+        bg = bg,
+        textLabel = textLabel,
+        hl = hl,
+        tracer = tracer,
+        conn = conn,
+        cleanName = cleanName
+    }
+end
+
+-- Detection Logic
+local function CheckAndAddMonster(obj)
+    if not obj:IsA("Model") then return end
+    if obj == LocalPlayer.Character then return end
+    
+    -- Filter out players
+    if Players:GetPlayerFromCharacter(obj) then return end
+    
+    -- Needs a body part
+    local root = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+    if not root then return end
+    
+    -- Needs signs of being a monster (Humanoid or Health value)
+    local hum = obj:FindFirstChildOfClass("Humanoid")
+    local hpVal = obj:FindFirstChild("Health") or obj:FindFirstChild("HP")
+    
+    if hum or hpVal then
+        -- Avoid dead monsters
+        local hp, max = GetHealthInfo(obj)
+        if hp and hp <= 0 then return end
+        
+        AddESP(obj)
+    end
+end
+
+local function ScanWorkspace()
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        CheckAndAddMonster(obj)
+    end
+end
+
+-- Refresh Button
+RefreshBtn.MouseButton1Click:Connect(function()
+    StatusText.Text = "Scanning manually..."
+    task.spawn(ScanWorkspace)
+end)
+
+-- Auto Detect New Spawns
+Workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.5) -- wait for model to fully load its parts
+    pcall(function() CheckAndAddMonster(obj) end)
+end)
+
+-- Main Render Loop
+RunService.RenderStepped:Connect(function()
+    local count = 0
+    local screenBottom = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+
+    for model, data in pairs(Cache) do
+        -- Check validity
+        if not model.Parent or not data.root or not data.root.Parent then
+            pcall(function() data.bg:Destroy() end)
+            pcall(function() data.hl:Destroy() end)
+            pcall(function() data.tracer:Destroy() end)
+            if data.conn then data.conn:Disconnect() end
+            Cache[model] = nil
+            continue
+        end
+
+        local hp, maxHp = GetHealthInfo(model)
+        if hp and hp <= 0 then
+            data.bg.Enabled = false
+            data.hl.Enabled = false
+            data.tracer.Visible = false
+            continue 
+        end
+
+        local dist = (Camera.CFrame.Position - data.root.Position).Magnitude
+        local isSelected = Config.SelectedMonsters[data.cleanName] == true
+        
+        if Config.Master and isSelected and dist <= Config.MaxDistance then
+            count = count + 1
+            local color = GetColorByHP(hp, maxHp)
+            local hexColor = string.format("#%02X%02X%02X", color.R*255, color.G*255, color.B*255)
+
+            -- Billboard Update
+            if Config.Billboard then
+                data.bg.Enabled = true
+                local lines = {}
+                if Config.ShowName then table.insert(lines, string.format("<font color='%s'>[%s]</font>", hexColor, data.cleanName)) end
+                if Config.ShowHP and hp and maxHp then 
+                    table.insert(lines, string.format("HP: %d/%d", math.floor(hp), math.floor(maxHp))) 
+                end
+                if Config.ShowLevel then table.insert(lines, "Lv: " .. tostring(GetLevel(model))) end
+                if Config.ShowDistance then table.insert(lines, string.format("%d studs", math.floor(dist))) end
+                
+                data.textLabel.Text = table.concat(lines, "\n")
+                data.textLabel.TextColor3 = color
+            else
+                data.bg.Enabled = false
+            end
+
+            -- Highlight Update
+            if Config.Highlight then
+                data.hl.Enabled = true
+                data.hl.FillColor = color
+                data.hl.OutlineColor = color
+            else
+                data.hl.Enabled = false
+            end
+
+            -- Tracer Update
+            if Config.Tracer then
+                local vector, onScreen = Camera:WorldToViewportPoint(data.root.Position)
+                if onScreen then
+                    local targetPos = Vector2.new(vector.X, vector.Y)
+                    local distance = (targetPos - screenBottom).Magnitude
+                    data.tracer.Visible = true
+                    data.tracer.Size = UDim2.new(0, 2, 0, distance)
+                    data.tracer.Position = UDim2.new(0, (vector.X + screenBottom.X) / 2, 0, (vector.Y + screenBottom.Y) / 2)
+                    data.tracer.Rotation = math.deg(math.atan2(vector.Y - screenBottom.Y, vector.X - screenBottom.X)) - 90
+                    data.tracer.BackgroundColor3 = color
+                else
+                    data.tracer.Visible = false
+                end
+            else
+                data.tracer.Visible = false
+            end
+        else
+            -- Hide if outside distance, not selected, or ESP off
+            data.bg.Enabled = false
+            data.hl.Enabled = false
+            data.tracer.Visible = false
+        end
+    end
+    
+    StatusText.Text = string.format("Active ESP: %d/%d", count, #Cache)
+end)
+
+-- Initial Scan
+task.spawn(function()
+    StatusText.Text = "Initial Scanning..."
+    ScanWorkspace()
+    UpdateMonsterListUI()
+end)
