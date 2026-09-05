@@ -1,5 +1,5 @@
 -- ==============================================================================
--- ALL-IN-ONE ADMIN HUB & MOBILE ESP (NO SETUP / AUTO-ADMIN FOR EVERYONE)
+-- ALL-IN-ONE ADMIN HUB & MOBILE ESP (FIXED NAME & FORMATTED HP: K, M, B, T, Q)
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -7,7 +7,6 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local CollectionService = game:GetService("CollectionService")
 local Camera = Workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
@@ -26,6 +25,35 @@ local Config = {
 }
 
 local ESPCache = {}
+
+-- Format number function (K, M, B, T, Q)
+local function FormatNumber(value)
+    if not value then return "0" end
+    if value >= 1e15 then
+        return string.format("%.1fQ", value / 1e15)
+    elseif value >= 1e12 then
+        return string.format("%.1fT", value / 1e12)
+    elseif value >= 1e9 then
+        return string.format("%.1fB", value / 1e9)
+    elseif value >= 1e6 then
+        return string.format("%.1fM", value / 1e6)
+    elseif value >= 1e3 then
+        return string.format("%.1fK", value / 1e3)
+    else
+        return tostring(math.floor(value))
+    end
+end
+
+-- Lấy tên chuẩn của NPC (Loại bỏ các tag số hoặc khoảng trắng thừa nếu có)
+local function GetCleanName(model)
+    local name = model.Name
+    -- Nếu tên toàn là số hoặc có dạng đặc biệt, cố gắng lấy từ HumanoidDisplayDistanceType hoặc Attribute nếu có
+    if tonumber(name) then
+        local customName = model:GetAttribute("DisplayName") or model:GetAttribute("MonsterName")
+        if customName then return tostring(customName) end
+    end
+    return name
+end
 
 -- ==============================================================================
 -- SAFE GUI PARENTING
@@ -360,11 +388,12 @@ RunService.RenderStepped:Connect(function()
 			local dist = (camPos - data.root.Position).Magnitude
 			if Config.MasterESP and dist <= Config.MaxDistance then
 				local hum = model:FindFirstChildOfClass("Humanoid")
-				local hp = hum and math.floor(hum.Health) or "?"
-				local maxHp = hum and math.floor(hum.MaxHealth) or "?"
+				local hp = hum and FormatNumber(hum.Health) or "?"
+				local maxHp = hum and FormatNumber(hum.MaxHealth) or "?"
+				local monsterName = GetCleanName(model)
 				
 				local textLines = {}
-				if Config.ShowName then table.insert(textLines, "[" .. model.Name .. "]") end
+				if Config.ShowName then table.insert(textLines, "[" .. monsterName .. "]") end
 				if Config.ShowHP then table.insert(textLines, "HP: " .. hp .. "/" .. maxHp) end
 				if Config.ShowDistance then table.insert(textLines, math.floor(dist) .. " studs") end
 				
