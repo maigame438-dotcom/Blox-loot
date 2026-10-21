@@ -1,5 +1,5 @@
 -- =========================================================================
---   💩 CHILLI HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 1/5)
+--   💩 HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 1/5)
 --   CẤU HÌNH HỆ THỐNG · SCRIPT GỐC LUAUFORGE MỚI · CHU KỲ 00:00 GMT+7
 -- =========================================================================
 
@@ -15,12 +15,12 @@ local KeyUrl = "https://link4m.net/m2JAFv"
 local TutorialUrl = "https://craftvip.github.io/free/getkey.html"
 local TargetScriptUrl = "https://luauforge-antiraw.netlify.app/raw/b2GaCbtITNxIA6Qayyauq1a"
 
-local ChilliAvatarId = "rbxassetid://73267734617789"  -- Hình quả ớt cho Menu Get Key bên ngoài
+local ChilliAvatarId = "rbxassetid://73267734617789"  -- Hình 💩 cho Menu Get Key bên ngoài
 local GiftBoxAssetId = "rbxassetid://115116611981430" -- Hình hộp quà cho Mini-game bên trong
 
-local KeyFileName = "ChilliV5_KeyData.json"
-local TrialFileName = "ChilliV5_TrialData.json"
-local GachaFileName = "ChilliV5_GachaData.json"
+local KeyFileName = "💩V5_KeyData.json"
+local TrialFileName = "💩V5_TrialData.json"
+local GachaFileName = "💩V5_GachaData.json"
 local TRIAL_DURATION = 157680000 -- Thời gian dùng thử 5 năm (5 x 365 x 86400 giây)
 
 local InitialGuis = {}
@@ -164,7 +164,7 @@ local function VerifyChilliV5Key(rawInput: string): boolean
     return false
 end
 -- =========================================================================
---   💩 CHILLI HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 2/5)
+--   💩 HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 2/5)
 --   SNAPSHOT UI · KHÓA MÀN HÌNH BẢO MẬT · LIVE TOAST THỜI GIAN THỰC
 -- =========================================================================
 
@@ -295,13 +295,13 @@ end
 local ActiveToastLabel = nil
 
 local function ShowLiveToast(titleText: string, initialSeconds: number, color: Color3)
-    if CoreGui:FindFirstChild("ChilliV5_ToastUI") then CoreGui.ChilliV5_ToastUI:Destroy() end
-    if LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("ChilliV5_ToastUI") then
-        LocalPlayer.PlayerGui.ChilliV5_ToastUI:Destroy()
+    if CoreGui:FindFirstChild("💩V5_ToastUI") then CoreGui.💩V5_ToastUI:Destroy() end
+    if LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("💩V5_ToastUI") then
+        LocalPlayer.PlayerGui.💩V5_ToastUI:Destroy()
     end
 
     local ToastGui = Instance.new("ScreenGui")
-    ToastGui.Name = "ChilliV5_ToastUI"
+    ToastGui.Name = "💩V5_ToastUI"
     ToastGui.ResetOnSpawn = false
     pcall(function() ToastGui.Parent = CoreGui end)
     if not ToastGui.Parent then ToastGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -384,7 +384,7 @@ local function ShowLiveToast(titleText: string, initialSeconds: number, color: C
     end)
 end
 -- =========================================================================
---   💩 CHILLI HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 3/5)
+--   💩 HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 3/5)
 --   GIAO DIỆN CHÍNH DARK SLATE · TỶ LỆ CHUẨN SCALE 1.0 · DỊU MẮT
 -- =========================================================================
 
@@ -392,9 +392,9 @@ local Languages = {
     VI = {
         LangBtnText = "🇻🇳 VI",
         SelectLangTitle = "Chọn ngôn ngữ hiển thị",
-        Title = "Key Steam Chilli Hub V5 - steal an egg 🥚",
-        Subtitle = "chilli hub v5 được tạo bởi ronnei7.htk",
-        CenterTitle = "CHILLI HUB V5 × RONNEI",
+        Title = "Key Steam 💩 Hub V5 - steal an egg 🥚",
+        Subtitle = "💩 hub v5 được tạo bởi ronnei7.htk",
+        CenterTitle = "💩HUB V5 × RONNEI",
         CenterSub = "Steal An Egg 🥚 Edition",
         Placeholder = "Dán mã key tại đây...",
         QuickPaste = "Dán",
@@ -408,15 +408,15 @@ local Languages = {
         CopiedTutorial = "Đã sao chép link hướng dẫn vào clipboard!",
         Checking = "Đang xác nhận...",
         CheckingMsg = "Đang đối soát mã key...",
-        Success = "Xác nhận thành công! Đang tải Chilli Hub V5...",
+        Success = "Xác nhận thành công! Đang tải 💩 Hub V5...",
         Error = "Mã Key không hợp lệ hoặc đã hết hạn!"
     },
     EN = {
         LangBtnText = "🇺🇸 EN",
         SelectLangTitle = "Select Display Language",
-        Title = "Key Steam Chilli Hub V5 - steal an egg 🥚",
-        Subtitle = "chilli hub v5 created by ronnei7.htk",
-        CenterTitle = "CHILLI HUB V5 × RONNEI",
+        Title = "Key Steam 💩 Hub V5 - steal an egg 🥚",
+        Subtitle = "💩 hub v5 created by 2024nam8.htk",
+        CenterTitle = "💩 HUB V5 × RONNEI",
         CenterSub = "Steal An Egg 🥚 Edition",
         Placeholder = "Paste your license key here...",
         QuickPaste = "Paste",
@@ -449,10 +449,10 @@ local function PlaySpringButton(btn: TextButton)
 end
 
 OpenKeySystemUI = function()
-    if CoreGui:FindFirstChild("ChilliV5_GetKeyUI") then CoreGui.ChilliV5_GetKeyUI:Destroy() end
+    if CoreGui:FindFirstChild("💩V5_GetKeyUI") then CoreGui.💩V5_GetKeyUI:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ChilliV5_GetKeyUI"
+    ScreenGui.Name = "💩V5_GetKeyUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     pcall(function() ScreenGui.Parent = CoreGui end)
@@ -631,7 +631,7 @@ OpenKeySystemUI = function()
     QuickPasteBtn.Parent = InputContainer
     Instance.new("UICorner", QuickPasteBtn).CornerRadius = UDim.new(0, 6)
     -- =========================================================================
---   💩 CHILLI HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 4/5)
+--   💩 HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 4/5)
 --   NÚT HỘP QUÀ TỐI GIẢN KHÔNG CHÓI · HỘP QUÀ PHÓNG XA NHÌN RÕ TOÀN THÂN
 -- =========================================================================
 
@@ -733,7 +733,7 @@ OpenKeySystemUI = function()
     StatusMsg.Size = UDim2.new(1, -36, 0, 20)
     StatusMsg.Position = UDim2.new(0, 18, 0, 402)
     StatusMsg.BackgroundTransparency = 1
-    StatusMsg.Text = "Chilli Hub V5 • Steal An Egg 🥚 • by ronnei7.htk"
+    StatusMsg.Text = "💩 Hub V5 • Steal An Egg 🥚 • by 2024nam8.htk"
     StatusMsg.TextColor3 = Color3.fromRGB(100, 116, 139)
     StatusMsg.TextSize = 9.5
     StatusMsg.Font = Enum.Font.GothamMedium
@@ -890,7 +890,7 @@ OpenKeySystemUI = function()
     GachaResultBanner.Parent = GachaModal
     Instance.new("UICorner", GachaResultBanner).CornerRadius = UDim.new(0, 10)
     -- =========================================================================
---   💩 CHILLI HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 5/5)
+--   💩 HUB V5 X RONNEI - STEAL AN EGG 🥚 (PHẦN 5/5)
 --   BACKEND TỈ LỆ 80% GETKEY - 20% NOKEY · ĐỔI NGÔN NGỮ · LUỒNG DÙNG THỬ
 -- =========================================================================
 
@@ -1037,7 +1037,7 @@ OpenKeySystemUI = function()
             if TutorialBtn and TutorialBtn.Parent then
                 TutorialBtn.Text = Languages[CurrentLang].Tutorial
                 TutorialBtn.TextColor3 = Color3.fromRGB(148, 163, 184)
-                StatusMsg.Text = "Chilli Hub V5 • Steal An Egg 🥚 • by ronnei7.htk"
+                StatusMsg.Text = "💩 Hub V5 • Steal An Egg 🥚 • by 2024nam8.htk"
                 StatusMsg.TextColor3 = Color3.fromRGB(100, 116, 139)
             end
             isTutorialDebounce = false
@@ -1057,7 +1057,7 @@ OpenKeySystemUI = function()
             if GetKeyBtn and GetKeyBtn.Parent then
                 GetKeyBtn.Text = Languages[CurrentLang].GetKey
                 GetKeyBtn.BackgroundColor3 = Color3.fromRGB(225, 29, 72)
-                StatusMsg.Text = "Chilli Hub V5 • Steal An Egg 🥚 • by ronnei7.htk"
+                StatusMsg.Text = "💩 Hub V5 • Steal An Egg 🥚 • by 20240.htk"
                 StatusMsg.TextColor3 = Color3.fromRGB(100, 116, 139)
             end
         end)
@@ -1144,7 +1144,7 @@ end
 
 local keyTimeLeft = GetKeyRemainingTime()
 if keyTimeLeft and keyTimeLeft > 0 then
-    ShowLiveToast("CHILLI HUB V5 (24H)", keyTimeLeft, Color3.fromRGB(225, 29, 72))
+    ShowLiveToast("💩 HUB V5 (5M)", keyTimeLeft, Color3.fromRGB(225, 29, 72))
     LaunchTargetScriptWithWatcher()
     return
 end
@@ -1172,7 +1172,7 @@ if remaining <= 0 then
     OpenKeySystemUI()
     return
 else
-    ShowLiveToast("CHILLI HUB V5 (DÙNG THỬ 5 NĂM)", remaining, Color3.fromRGB(225, 29, 72))
+    ShowLiveToast("💩 HUB V5 (DÙNG THỬ 5 NĂM)", remaining, Color3.fromRGB(225, 29, 72))
     LaunchTargetScriptWithWatcher()
 
     task.spawn(function()
